@@ -59,16 +59,7 @@ function isDirectMp4(url: string): boolean {
 
 export default function ProfileMediaEngine({ videoBgUrl, audioBgUrl }: ProfileMediaEngineProps) {
     const [isMuted, setIsMuted] = useState(true);
-    const [videoError, setVideoError] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
-
-    useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.muted = true;
-            videoRef.current.play().catch(() => setVideoError(true));
-        }
-    }, [videoBgUrl]);
 
     const toggleAudio = () => {
         if (!audioRef.current) return;
@@ -94,50 +85,19 @@ export default function ProfileMediaEngine({ videoBgUrl, audioBgUrl }: ProfileMe
 
     return (
         <>
-            {/* ── YouTube / Vimeo iframe ── */}
-            {videoBgUrl && embedUrl && !videoError && (
-                <div style={BG_STYLE}>
-                    <iframe
-                        src={embedUrl}
-                        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        title="bg-video"
-                        style={{
-                            position: 'absolute',
-                            // Scale up to fill without black bars (16:9 → cover viewport)
-                            top: '50%', left: '50%',
-                            transform: 'translate(-50%, -50%) scale(1.5)',
-                            width: '100%',
-                            height: '100%',
-                            border: 'none',
-                            opacity: 0.5,
-                        }}
-                    />
-                </div>
-            )}
-
-            {/* ── MP4 / WebM directo ── */}
-            {videoBgUrl && isMp4 && !videoError && (
-                <div style={BG_STYLE}>
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        preload="auto"
-                        onError={() => setVideoError(true)}
-                        style={{
-                            width: '100%', height: '100%',
-                            objectFit: 'cover',
-                            opacity: 0.5,
-                        }}
-                    >
-                        <source src={videoBgUrl} type="video/mp4" />
-                        <source src={videoBgUrl} type="video/webm" />
-                    </video>
-                </div>
-            )}
+            {/* ── Fondo Dinámico Animado o Imagen Estática ── */}
+            <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black">
+                {videoBgUrl && !embedUrl && !isMp4 && (
+                    <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={videoBgUrl}
+                            alt="Background"
+                            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-30"
+                        />
+                    </>
+                )}
+            </div>
 
             {/* ── Audio ambiental ── */}
             {audioBgUrl && (
@@ -146,9 +106,7 @@ export default function ProfileMediaEngine({ videoBgUrl, audioBgUrl }: ProfileMe
                     <button
                         onClick={toggleAudio}
                         style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}
-                        className="p-4 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-full
-                                   shadow-[0_0_20px_rgba(0,0,0,0.5)] text-white hover:scale-110
-                                   transition-transform flex items-center justify-center"
+                        className="p-4 bg-gray-900/80 backdrop-blur-md border border-gray-700/50 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] text-white hover:scale-110 transition-transform flex items-center justify-center"
                         title={isMuted ? 'Activar audio ambiental' : 'Silenciar audio'}
                     >
                         <span className="text-xl leading-none">{isMuted ? '🔇' : '🔊'}</span>

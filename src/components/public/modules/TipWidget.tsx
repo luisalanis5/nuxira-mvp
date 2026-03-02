@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export interface TipWidgetProps {
     id: string;
@@ -24,12 +25,12 @@ export default function TipWidget({
 
     const handlePayment = async () => {
         if (!creatorId) {
-            alert('El ID del creador no está disponible.');
+            toast.error('El ID del creador no está disponible.');
             return;
         }
 
         if (amount < 1) {
-            alert('El monto mínimo es de $1.');
+            toast.error('El monto mínimo es de $1.');
             return;
         }
 
@@ -60,7 +61,7 @@ export default function TipWidget({
             }
         } catch (error: any) {
             console.error('Payment error:', error);
-            alert('Error al iniciar el pago: ' + error.message);
+            toast.error('Error al iniciar el pago: ' + error.message);
         } finally {
             setIsSubmitting(false);
         }

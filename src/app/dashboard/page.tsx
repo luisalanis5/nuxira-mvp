@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getSkin } from '@/config/themes';
 import { FONT_WHITELIST } from '@/config/fonts';
 import VerifiedBadge from '@/components/public/VerifiedBadge';
+import toast from 'react-hot-toast';
 
 type CreatorData = {
     profile: {
@@ -147,10 +148,10 @@ export default function CreatorDashboard() {
                 theme: { primaryColor, fontMode, buttonStyle, mode: themeMode, activeSkin, videoBgUrl, audioBgUrl, fontFamily }
             } : null);
 
-            alert("✅ Perfil y tema actualizados exitosamente.");
+            toast.success("¡Configuración guardada!");
         } catch (error) {
             console.error("Error guardando:", error);
-            alert("❌ Hubo un error al guardar. Revisa tu conexión.");
+            toast.error("Hubo un error al guardar. Revisa tu conexión.");
         } finally {
             setIsSaving(false);
         }
@@ -200,7 +201,7 @@ export default function CreatorDashboard() {
             } : null);
         } catch (err) {
             console.error('[AVATAR UPLOAD ERROR]', err);
-            alert('❌ Error al subir la foto. Verifica las Storage Rules de Firebase.');
+            toast.error('Error al subir la foto. Verifica las Storage Rules de Firebase.');
         } finally {
             setIsUploadingPic(false);
             e.target.value = '';
@@ -216,17 +217,17 @@ export default function CreatorDashboard() {
             await updateDoc(docRef, { isPremium: true });
 
             setCreatorData(prev => prev ? { ...prev, isPremium: true } : null);
-            alert("⭐ ¡Felicidades! Ya eres Nexia Pro.");
+            toast.success("⭐ ¡Felicidades! Ya eres Nexia Pro.");
         } catch (error) {
             console.error("Error al hacerse premium:", error);
-            alert("❌ Error al procesar el pago.");
+            toast.error("Error al procesar el pago.");
         }
     };
 
     const handleRequestVerification = async () => {
         if (!auth.currentUser) return;
         if (!creatorData?.isPremium) {
-            alert("Pronto disponible para cuentas PRO. ¡Hazte premium primero!");
+            toast.error("Pronto disponible para cuentas PRO. ¡Hazte premium primero!");
             return;
         }
 
@@ -235,10 +236,10 @@ export default function CreatorDashboard() {
             await updateDoc(docRef, { isVerified: true });
 
             setCreatorData(prev => prev ? { ...prev, isVerified: true } : null);
-            alert("✅ ¡Verificación de regalo concedida como demo!");
+            toast.success("¡Verificación concedida!");
         } catch (error) {
             console.error("Error al verificar:", error);
-            alert("❌ Error al procesar la verificación.");
+            toast.error("Error al procesar la verificación.");
         }
     };
 
@@ -591,7 +592,7 @@ export default function CreatorDashboard() {
                                                                 <input type="file" accept="audio/mpeg,audio/mp3,audio/*" className="hidden" onChange={async (e) => {
                                                                     const file = e.target.files?.[0];
                                                                     if (!file || !auth.currentUser) return;
-                                                                    if (file.size > 5 * 1024 * 1024) { alert('El audio no puede superar 5MB'); return; }
+                                                                    if (file.size > 5 * 1024 * 1024) { toast.error('El audio no puede superar 5MB'); return; }
                                                                     setIsSaving(true);
                                                                     try {
                                                                         const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-audio.mp3`);
@@ -600,7 +601,7 @@ export default function CreatorDashboard() {
                                                                         setAudioBgUrl(url);
                                                                     } catch (err: any) {
                                                                         console.error('[AUDIO UPLOAD ERROR]', err);
-                                                                        alert(`Error al subir audio: ${err?.code || err?.message || 'desconocido'}`);
+                                                                        toast.error(`Error al subir audio: ${err?.code || err?.message || 'desconocido'}`);
                                                                     }
                                                                     finally { setIsSaving(false); e.target.value = ''; }
                                                                 }} />

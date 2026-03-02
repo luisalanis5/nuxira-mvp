@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/lib/firebase/client';
 import { doc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { isKnownEmbedUrl } from '@/components/public/MediaEmbed';
+import toast from 'react-hot-toast';
 
 type ModuleItem = {
   id: string;
@@ -51,7 +52,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
       await deleteDoc(doc(db, 'questions', id));
       setQuestions(questions.filter(q => q.id !== id));
     } catch (err) {
-      alert("Error eliminando..");
+      toast.error("Error eliminando..");
     }
   };
 
@@ -61,12 +62,12 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
     try {
       const docRef = doc(db, 'creators', auth.currentUser.uid);
       await updateDoc(docRef, { isPremium: true });
-      alert("¡Felicidades! Ahora eres usuario Nexia PRO 👑");
+      toast.success("¡Felicidades! Ahora eres usuario Nexia PRO 👑");
       setShowProModal(false);
       onUpdate();
     } catch (err) {
       console.error("Error al actualizar a Pro", err);
-      alert("Error al procesar la solicitud.");
+      toast.error("Error al procesar la solicitud.");
     } finally {
       setSaving(false);
     }
@@ -247,7 +248,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
       onUpdate();
     } catch (error) {
       console.error("Error guardando módulo", error);
-      alert("Error al guardar el módulo.");
+      toast.error("Error al guardar el módulo.");
     } finally {
       setSaving(false);
     }
@@ -266,7 +267,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
       onUpdate();
     } catch (error) {
       console.error("Error eliminando módulo", error);
-      alert("Error al eliminar.");
+      toast.error("Error al eliminar.");
     } finally {
       setSaving(false);
     }
@@ -314,7 +315,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
       onUpdate();
     } catch (err) {
       console.error("Error reordenando", err);
-      alert('Error reordenando módulos');
+      toast.error('Error reordenando módulos');
     } finally {
       setSaving(false);
     }

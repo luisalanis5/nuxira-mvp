@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export interface LockedContentProps {
     id: string;
@@ -44,10 +45,10 @@ export default function LockedContent({ id, creatorId, title, description, price
                 setSecretUrl(data.secretContent);
                 setIsUnlocked(true);
             } else {
-                alert(`⚠️ Error: ${data.error || 'No se pudo validar el pago.'}`);
+                toast.error(`⚠️ Error: ${data.error || 'No se pudo validar el pago.'}`);
             }
         } catch (error: any) {
-            alert(`❌ Error de conexión: ${error.message || 'Verifica tu internet.'}`);
+            toast.error(`❌ Error de conexión: ${error.message || 'Verifica tu internet.'}`);
         } finally {
             setIsLoading(false);
         }

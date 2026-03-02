@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/lib/firebase/client';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
 
 export default function FeedManager() {
     const [content, setContent] = useState('');
@@ -51,7 +52,7 @@ export default function FeedManager() {
             setImageUrl('');
         } catch (error) {
             console.error("Error al publicar Novedad", error);
-            alert("Error al publicar.");
+            toast.error("Error al publicar.");
         } finally {
             setIsPublishing(false);
         }
@@ -65,7 +66,7 @@ export default function FeedManager() {
             await deleteDoc(doc(db, 'creators', auth.currentUser.uid, 'feed_posts', postId));
         } catch (error) {
             console.error("Error al eliminar", error);
-            alert("No se pudo eliminar.");
+            toast.error("No se pudo eliminar.");
         }
     };
 

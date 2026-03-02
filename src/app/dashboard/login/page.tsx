@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/lib/firebase/client';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (error) {
       console.error("❌ Error en autenticación:", error);
-      alert("Hubo un problema al iniciar sesión. Revisa la consola.");
+      toast.error("Hubo un problema al iniciar sesión. Revisa la consola.");
     }
   };
 

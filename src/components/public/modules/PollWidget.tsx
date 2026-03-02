@@ -2,18 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { db } from '@/lib/firebase/client';
 import { doc, onSnapshot } from 'firebase/firestore';
 
 export interface PollWidgetProps {
-    id: string;
+    id?: string;
+    moduleId?: string;
     creatorId: string;
     question: string;
     options: string[]; // Hasta 4 opciones
     results?: Record<string, number>;
+    isPreview?: boolean;
 }
 
-export default function PollWidget({ id, creatorId, question, options: initialOptions, results: dbResults }: PollWidgetProps) {
+export default function PollWidget({ id, moduleId, creatorId, question, options: initialOptions, results: dbResults, isPreview }: PollWidgetProps) {
+    const activeId = moduleId || id || '';
     const [hasVoted, setHasVoted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [totalVotes, setTotalVotes] = useState(0);
@@ -23,15 +27,15 @@ export default function PollWidget({ id, creatorId, question, options: initialOp
     useEffect(() => {
         // Bloqueo de variables indefinidas y prevención de rutas malformadas
         if (!creatorId || typeof creatorId !== 'string' || creatorId.includes('undefined')) return;
-        if (!id || typeof id !== 'string' || id.includes('undefined') || id.startsWith('temp-')) return;
+        if (!activeId || typeof activeId !== 'string' || activeId.includes('undefined') || activeId.startsWith('temp-')) return;
 
         // Chequear localStorage
-        const voted = localStorage.getItem(`voted_${id}`);
+        const voted = localStorage.getItem(`voted_${activeId}`);
         if (voted) {
             setHasVoted(true);
         }
 
-        const pollRef = doc(db, 'creators', creatorId, 'modules', id);
+        const pollRef = doc(db, 'creators', creatorId, 'modules', activeId);
 
         const unsubscribe = onSnapshot(
             pollRef,
@@ -54,7 +58,7 @@ export default function PollWidget({ id, creatorId, question, options: initialOp
                 }
             },
             (error) => {
-                console.error("[FIREBASE DEBUG] Fallo onSnapshot en módulo: poll | ID:", id, " | Creador:", creatorId, " | Error:", error.message);
+                console.error("[FIREBASE DEBUG] Fallo onSnapshot en módulo: poll | ID:", activeId, " | Creador:", creatorId, " | Error:", error.message);
             }
         );
 
@@ -62,20 +66,20 @@ export default function PollWidget({ id, creatorId, question, options: initialOp
     }, [id, creatorId]);
 
     const handleVote = async (optionIndex: number) => {
-        if (!id || id.startsWith('temp-')) {
-            alert("Por favor, guarda los cambios del módulo antes de votar en la vista previa.");
+        if (!moduleId || isPreview) {
+            toast("¡Se ve genial! Los votos se activarán en tu perfil público.", { icon: '📊' });
             return;
         }
         if (hasVoted || isSubmitting) return;
 
         setIsSubmitting(true);
-        console.log("Votando en Poll ID:", id, "Opción Índex:", optionIndex);
+        console.log("Votando en Poll ID:", activeId, "Opción Índex:", optionIndex);
 
         try {
             const res = await fetch('/api/polls/vote', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ creatorId, moduleId: id, optionIndex })
+                body: JSON.stringify({ creatorId, moduleId: activeId, optionIndex })
             });
 
             if (!res.ok) {
@@ -85,12 +89,12 @@ export default function PollWidget({ id, creatorId, question, options: initialOp
 
             const data = await res.json();
             if (data.success) {
-                localStorage.setItem(`voted_${id}`, 'true');
+                localStorage.setItem(`voted_${activeId}`, 'true');
                 setHasVoted(true);
             }
         } catch (error) {
             console.error("Error capturado en handleVote:", error);
-            alert("Error al registrar voto. Intenta nuevamente.");
+            toast.error("Error al registrar voto. Intenta nuevamente.");
         } finally {
             setIsSubmitting(false);
         }
