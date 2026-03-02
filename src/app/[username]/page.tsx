@@ -136,7 +136,7 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
 
   // ============================================
 
-  const fontClass = theme.fontFamily && FONT_MAP[theme.fontFamily] ? FONT_MAP[theme.fontFamily] : (theme.fontMode === 'serif' ? 'font-serif' : theme.fontMode === 'mono' ? 'font-mono' : skin.baseFont);
+  const fontClass = theme.fontFamily && FONT_MAP[theme.fontFamily] ? FONT_MAP[theme.fontFamily] : skin.baseFont;
 
   return (
     <main className={`${skin.containerClass} ${fontClass}`}>

@@ -3,33 +3,23 @@ import { adminDb } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: Request) {
-    if (!adminDb) {
-        return NextResponse.json({ error: 'DB no inicializada' }, { status: 500 });
-    }
-
+    if (!adminDb) return NextResponse.json({ error: 'DB no inicializada' }, { status: 500 });
     try {
         const body = await req.json();
         const { creatorId, postId, localUserId, isLiked } = body;
 
-        if (!creatorId || !postId || !localUserId) {
-            return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
-        }
+        if (!creatorId || !postId || !localUserId) return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
 
         const postRef = adminDb.collection('creators').doc(creatorId).collection('feed_posts').doc(postId);
 
         if (isLiked) {
-            await postRef.update({
-                likedBy: FieldValue.arrayRemove(localUserId)
-            });
+            await postRef.update({ likedBy: FieldValue.arrayRemove(localUserId) });
         } else {
-            await postRef.update({
-                likedBy: FieldValue.arrayUnion(localUserId)
-            });
+            await postRef.update({ likedBy: FieldValue.arrayUnion(localUserId) });
         }
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
-        console.error("Error en like API:", error);
         return NextResponse.json({ error: 'Error procesando el like' }, { status: 500 });
     }
 }
