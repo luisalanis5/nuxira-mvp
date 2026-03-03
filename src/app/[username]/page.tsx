@@ -10,6 +10,7 @@ import VerifiedBadge from '@/components/public/VerifiedBadge';
 import ShareProfileButton from '@/components/public/ShareProfileButton';
 import { getSkin } from '@/config/themes';
 import { FONT_MAP } from '@/config/fonts';
+import { getUnifiedModuleStyles, getSafeTextColor } from '@/lib/utils/themeUtils';
 
 export const revalidate = 0;
 
@@ -136,73 +137,103 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
 
   // ============================================
 
-  const fontClass = theme.fontFamily && FONT_MAP[theme.fontFamily] ? FONT_MAP[theme.fontFamily] : skin.baseFont;
+  // Segmento final de CreatorProfile() en src/app/[username]/page.tsx
+  // Extraer colores globales seguro
+  const primaryColor = theme.primaryColor || '#00FFCC';
+  const textColor = getSafeTextColor(primaryColor);
+
+  // Variables CSS puras para la fuente de Google
+  const customFontFamily = theme.fontFamily && FONT_MAP[theme.fontFamily] ? FONT_MAP[theme.fontFamily] : 'var(--font-inter)';
+
+  // Unificar estilo del Header con el resto de módulos
+  const headerStyles = getUnifiedModuleStyles(theme, false);
+
+  const activeSkinId = theme.activeSkin || 'default';
+  const isDefaultSkin = activeSkinId === 'default';
+
+  // Si no es el skin por defecto, usamos el contenedor del skin.
+  // Si es el skin por defecto, usamos #0d0d12 u oscurecemos el fondo.
+  const mainClass = `min-h-screen w-full overflow-x-hidden antialiased ${!isDefaultSkin ? skin.containerClass : 'bg-[#0d0d12]'}`;
+  const mainStyle = {
+    fontFamily: customFontFamily,
+    color: isDefaultSkin ? textColor : undefined
+  };
 
   return (
-    <main className={`${skin.containerClass} ${fontClass}`}>
-      <ProfileMediaEngine videoBgUrl={theme.videoBgUrl} audioBgUrl={theme.audioBgUrl} />
+    <main
+      className={mainClass}
+      style={mainStyle}
+    >
+      <ProfileMediaEngine
+        videoBgUrl={theme.videoBgUrl}
+        backgroundImage={theme.backgroundImage}
+        audioBgUrl={theme.audioBgUrl}
+        primaryColor={primaryColor}
+      />
 
-      {/* Fondo Neon Custom si no es gotham o burton (opcional, lo mantenemos por ahora) */}
-      {theme.activeSkin !== 'gotham' && theme.activeSkin !== 'burton' && (
+      {/* Overlay opcional para el color primario (Skin Base) */}
+      {!theme.videoBgUrl && !theme.backgroundImage && (
         <div
           className="fixed inset-0 z-0 opacity-10 pointer-events-none"
-          style={{ backgroundImage: `radial-gradient(circle at 50% 0%, ${theme.primaryColor} 0%, transparent 50%)` }}
+          style={{ backgroundImage: `radial-gradient(circle at 50% 0%, ${primaryColor} 0%, transparent 50%)` }}
         />
       )}
 
       <div className="relative z-10 max-w-md mx-auto p-6 pt-16 flex flex-col items-center">
-        {/* Contenedor principal de la cabecera: Usamos Flexbox con skin classes si queremos, o mantenemos el glass */}
-        <div className={`relative flex items-center gap-6 p-6 rounded-3xl w-full max-w-2xl mx-auto mb-8 ${skin.cardClass}`}>
-          <ShareProfileButton username={username} displayName={profile.displayName || username} primaryColor={theme.primaryColor} />
+        {/* Cabecera del Creador Unificada */}
+        <div
+          className={`relative flex items-center gap-6 p-6 w-full max-w-2xl mx-auto mb-8 overflow-hidden transition-all duration-300 ${headerStyles.usesSkinCard ? skin.cardClass : 'rounded-3xl shadow-xl'} ${headerStyles.hasImage ? 'backdrop-blur-md' : ''}`}
+          style={{
+            backgroundColor: headerStyles.backgroundColor,
+            boxShadow: headerStyles.boxShadow,
+            border: headerStyles.border,
+            color: headerStyles.color
+          }}
+        >
+          <ShareProfileButton username={username} displayName={profile.displayName || username} primaryColor={primaryColor} />
 
-          {/* Contenedor de la Imagen: FIJO para evitar estiramiento. w-24 h-24 y flex-shrink-0 son VITALES */}
-          <div className="relative w-24 h-24 rounded-full border-4 border-purple-500/50 shadow-lg glow-purple flex-shrink-0 overflow-hidden" style={{ borderColor: theme.primaryColor }}>
+          {/* EFECTO ANILLO / PROFILE RING: Ahora parametrizable al color de Acento */}
+          <div
+            className="relative w-24 h-24 rounded-full border-[3px] shadow-lg flex-shrink-0 overflow-hidden"
+            style={{
+              borderColor: theme.primaryColor,
+              boxShadow: `0 0 25px ${theme.primaryColor}60, inset 0 0 10px ${theme.primaryColor}40` // Glow dinámico
+            }}
+          >
             {profile.avatarUrl ? (
-              <Image
-                src={profile.avatarUrl}
-                alt={profile.displayName || username}
-                fill
-                sizes="96px"
-                className="object-cover"
-                priority
-              />
+              <Image src={profile.avatarUrl} alt={profile.displayName || username} fill sizes="96px" className="object-cover" priority />
             ) : (
-              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-800 rounded-full text-3xl">
-                👤
-              </div>
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black/50 rounded-full text-3xl">👤</div>
             )}
           </div>
 
-          {/* Contenedor de Texto: flex-1 para ocupar el resto del espacio */}
           <div className="flex-1 min-w-0">
-            <h1 className={`text-3xl font-bold leading-tight break-words text-left flex items-center ${skin.textClass}`}>
+            <h1 className="text-3xl font-bold leading-tight break-words text-left flex items-center" style={{ fontFamily: 'inherit', color: 'inherit' }}>
               {profile.displayName || `@${username}`}
               {(isPremium || isVerified) && <VerifiedBadge />}
             </h1>
-            <p className="text-gray-400 text-lg break-words text-left mt-1">
+            <p className="text-lg break-words text-left mt-1 opacity-80" style={{ fontFamily: 'inherit', color: 'inherit' }}>
               {profile.bio || "Creador en Nexia"}
             </p>
-            <span className="text-gray-500 text-sm mt-1 block text-left">
+            <span className="text-sm mt-1 block text-left opacity-60">
               nexia.app/{username}
             </span>
           </div>
-
         </div>
 
-        {/* --- ENLACES ESTÁTICOS ANCLADOS DESDE FIRESTORE --- */}
+        {/* Links Estáticos */}
         <div className="w-full mb-2">
           <LinksList modules={linksModules} theme={theme} username={username} />
         </div>
 
-        {/* --- MOTOR ORQUESTADOR DINÁMICO DESDE FIRESTORE --- */}
-        {/* Aquí se inyecta Q&A seguido de los Anuncios y Medios del usuario */}
+        {/* Módulos Dinámicos */}
         <RenderEngine layout={dynamicLayout} theme={theme} />
 
         {/* Footer */}
-        <div className="mt-16 mb-8 text-center text-sm font-medium text-gray-600 flex flex-col items-center gap-2">
-          <div className="w-10 h-1 rounded-full bg-gray-800 mb-2"></div>
-          <a href="/" className="hover:text-gray-400 transition-colors">
-            Potenciado por <span className="font-bold text-white tracking-widest uppercase" style={{ color: theme.primaryColor }}>NEXIA</span>
+        <div className="mt-16 mb-8 text-center text-sm font-medium flex flex-col items-center gap-2" style={{ color: textColor }}>
+          <div className="w-10 h-1 rounded-full mb-2 opacity-50" style={{ backgroundColor: textColor }}></div>
+          <a href="/" className="hover:opacity-70 transition-opacity">
+            Potenciado por <span className="font-bold tracking-widest uppercase" style={{ color: theme.primaryColor }}>NEXIA</span>
           </a>
         </div>
       </div>

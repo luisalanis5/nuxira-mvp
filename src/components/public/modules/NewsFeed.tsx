@@ -7,14 +7,17 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { isKnownEmbedUrl } from '@/components/public/MediaEmbed';
 import MediaEmbed from '@/components/public/MediaEmbed';
+import { getSkin } from '@/config/themes';
 
 export interface NewsFeedProps {
     id: string;
     creatorId: string;
     title?: string;
+    theme?: any;
 }
 
-export default function NewsFeed({ id, creatorId, title = "Últimas Novedades" }: NewsFeedProps) {
+export default function NewsFeed({ id, creatorId, title = "Últimas Novedades", theme }: NewsFeedProps) {
+    const skin = getSkin(theme?.activeSkin);
     const [posts, setPosts] = useState<any[]>([]);
     const [localUserId, setLocalUserId] = useState<string>('');
 
@@ -95,14 +98,14 @@ export default function NewsFeed({ id, creatorId, title = "Últimas Novedades" }
     };
 
     return (
-        <div className="w-full my-6">
-            {title && <h3 className="text-xl font-bold text-white mb-4">{title}</h3>}
+        <div className="w-full flex flex-col h-full text-current">
+            {title && <h3 className="text-xl font-bold mb-4 text-current">{title}</h3>}
 
-            <div className="space-y-4">
+            <div className="space-y-6">
                 {posts.map((post) => (
-                    <div key={post.id} className="bg-gray-900/60 backdrop-blur-md rounded-3xl p-5 border border-gray-800 shadow-lg relative overflow-hidden group transition-all hover:bg-gray-800/80">
+                    <div key={post.id} className="relative overflow-hidden group transition-all border-b border-current/10 pb-5 last:border-0 last:pb-0">
                         {/* Acento Neon a la izquierda */}
-                        <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-b from-purple-500 to-blue-500 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute top-0 bottom-0 left-[-16px] w-1 bg-gradient-to-b from-purple-500 to-blue-500 opacity-50 group-hover:opacity-100 transition-opacity"></div>
 
                         {(() => {
                             const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -126,7 +129,7 @@ export default function NewsFeed({ id, creatorId, title = "Últimas Novedades" }
 
                             return (
                                 <>
-                                    <p className="text-gray-200 text-sm md:text-base leading-relaxed mb-3 whitespace-pre-wrap">
+                                    <p className="text-sm md:text-base leading-relaxed mb-3 whitespace-pre-wrap text-current opacity-90">
                                         {post.content}
                                     </p>
 
@@ -157,13 +160,13 @@ export default function NewsFeed({ id, creatorId, title = "Últimas Novedades" }
                             );
                         })()}
 
-                        <div className="flex justify-between items-center text-xs text-gray-500 font-medium border-t border-gray-800/50 pt-3 mt-2">
+                        <div className="flex justify-between items-center text-xs font-medium border-current/20 pt-3 mt-2 text-current opacity-70">
                             <span>{post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Reciente'}</span>
                             <button
                                 onClick={() => handleLike(post)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all ${post.likedBy?.includes(localUserId)
                                     ? 'bg-purple-500/20 text-purple-400'
-                                    : 'bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white'
+                                    : 'bg-black/10 hover:bg-black/20 text-current'
                                     }`}
                             >
                                 <motion.span

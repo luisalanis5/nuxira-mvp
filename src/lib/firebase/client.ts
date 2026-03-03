@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, clearIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -25,9 +25,15 @@ if (typeof window !== 'undefined') {
         db = initializeFirestore(app, {
             localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
         });
-    } catch (e) {
+    } catch (e: any) {
         // En caso de que ya estuviera inicializado o hubiera un error de IndexedDB
         db = getFirestore(app);
+
+        // FIX: Error de Firestore "update time that is in the future"
+        if (e.message && e.message.includes('future')) {
+            console.warn("Limpiando caché de IndexedDB debido a un error de sincronización de tiempo...");
+            clearIndexedDbPersistence(db).catch(() => { });
+        }
     }
 } else {
     db = getFirestore(app);

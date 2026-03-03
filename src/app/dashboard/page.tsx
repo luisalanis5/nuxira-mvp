@@ -15,9 +15,10 @@ import FeedManager from '@/components/dashboard/FeedManager';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSkin } from '@/config/themes';
 import { FONT_WHITELIST } from '@/config/fonts';
+import { fontDictionary } from '@/utils/fonts';
 import VerifiedBadge from '@/components/public/VerifiedBadge';
 import toast from 'react-hot-toast';
-import { getContrastYIQ } from '@/lib/utils/themeUtils';
+import { getContrastYIQ, getSafeTextColor } from '@/lib/utils/themeUtils';
 
 type CreatorData = {
     profile: {
@@ -301,7 +302,7 @@ export default function CreatorDashboard() {
 
     // Resolver la clase del skin y la tipografía para la vista previa
     const activeSkinObj = getSkin(activeSkin as any);
-    const fontClass = fontMode === 'serif' ? 'font-serif' : fontMode === 'mono' ? 'font-mono' : activeSkinObj.baseFont;
+    const fontClass = fontFamily && fontDictionary[fontFamily] ? fontDictionary[fontFamily].className : '';
 
 
     return (
@@ -731,10 +732,18 @@ export default function CreatorDashboard() {
 
                             {/* LIVE PREVIEW CONTENT */}
                             <div
-                                className={`w-full h-full overflow-y-auto pb-20 scrollbar-hide ${activeSkinObj.containerClass} ${fontClass} !min-h-0 relative`}
+                                className={`w-full h-full overflow-y-auto pb-20 scrollbar-hide ${activeSkinObj.containerClass} ${fontFamily && fontDictionary[fontFamily] ? fontDictionary[fontFamily].className : ''} !min-h-0 relative`}
+                                style={{
+                                    backgroundColor: activeSkin !== 'default' ? undefined : (videoBgUrl ? undefined : '#0d0d12'),
+                                    backgroundImage: videoBgUrl ? `url(${videoBgUrl})` : 'none',
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    color: activeSkin !== 'default' ? undefined : (getSafeTextColor(primaryColor) === '#FFFFFF' ? '#FFFFFF' : '#111827'),
+                                    fontFamily: 'inherit'
+                                }}
                             >
                                 {/* Fondo de previsualización dinámico transparente si es requerido */}
-                                {activeSkin !== 'gotham' && activeSkin !== 'burton' && (
+                                {activeSkin !== 'gotham' && activeSkin !== 'burton' && !videoBgUrl && (
                                     <div
                                         className="fixed inset-0 z-0 opacity-10 pointer-events-none"
                                         style={{ backgroundImage: `radial-gradient(circle at 50% 0%, ${primaryColor} 0%, transparent 50%)` }}

@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { FaInstagram, FaGithub, FaApple, FaGooglePlay, FaLink, FaTiktok, FaYoutube, FaFacebook, FaSpotify, FaTwitter, FaTwitch } from 'react-icons/fa';
+import { getSkin } from '@/config/themes';
+import { generatePalette, getUnifiedModuleStyles } from '@/lib/utils/themeUtils';
 
 type LinksListProps = {
     modules: any[];
@@ -14,6 +16,10 @@ type LinksListProps = {
         fontFamily?: string;
         videoBgUrl?: string;
         audioBgUrl?: string;
+        backgroundImage?: string;
+        textColor?: string;
+        cardColor?: string;
+        buttonColor?: string;
     };
     username?: string;
 };
@@ -34,6 +40,7 @@ const getIconForUrl = (url: string) => {
 };
 
 export default function LinksList({ modules, theme, username }: LinksListProps) {
+    const skin = getSkin(theme?.activeSkin as any);
     const linksModules = modules.filter((m: any) => m.type === 'links' && m.items && m.items.length > 0);
 
     const handleTrackClick = (moduleId: string) => {
@@ -62,6 +69,13 @@ export default function LinksList({ modules, theme, username }: LinksListProps) 
                 const linkData = mod.items[0];
                 if (!linkData) return null;
 
+                const hasImage = !!theme?.videoBgUrl || !!theme?.backgroundImage;
+                const primaryColor = theme?.primaryColor || '#00FFCC';
+                const palette = generatePalette(primaryColor);
+
+                // Aplicar Unified Module Styles
+                const styles = getUnifiedModuleStyles(theme);
+
                 return (
                     <a
                         key={mod.id}
@@ -69,16 +83,24 @@ export default function LinksList({ modules, theme, username }: LinksListProps) 
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => handleTrackClick(mod.id)}
-                        className="group relative w-full p-4 rounded-2xl bg-gray-800/60 backdrop-blur-md border border-gray-700 hover:border-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 overflow-hidden"
+                        className={`group cursor-pointer relative w-full box-border overflow-hidden transition-all duration-300 hover:-translate-y-1 ${styles.usesSkinCard ? skin.buttonClass : 'rounded-2xl p-5'} flex items-center justify-center ${styles.hasImage && styles.usesSkinCard ? 'backdrop-blur-md' : ''} ${styles.hasImage && !styles.usesSkinCard ? 'backdrop-blur-md' : ''}`}
+                        style={{
+                            backgroundColor: styles.backgroundColor,
+                            color: styles.color,
+                            fontFamily: 'inherit',
+                            border: styles.border,
+                            boxShadow: styles.boxShadow,
+                            padding: styles.usesSkinCard ? '1.25rem' : '1.25rem' // Ensure constant padding
+                        }}
                     >
                         <div
-                            className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300"
-                            style={{ backgroundColor: theme.primaryColor }}
+                            className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none"
+                            style={{ backgroundColor: palette.accentColor }}
                         />
 
-                        <div className="relative z-10 flex items-center justify-center w-full gap-3">
+                        <div className="relative z-10 flex items-center justify-center w-full gap-3 pointer-events-none">
                             {getIconForUrl(linkData.url)}
-                            <span className="font-semibold text-white/90 group-hover:text-white transition-colors text-lg">
+                            <span className="font-semibold transition-colors text-lg text-current" style={{ fontFamily: 'inherit', color: 'inherit' }}>
                                 {linkData.name}
                             </span>
                         </div>

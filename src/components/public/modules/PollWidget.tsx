@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { db } from '@/lib/firebase/client';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getContrastYIQ } from '@/lib/utils/themeUtils';
+import { getSkin } from '@/config/themes';
 
 export interface PollWidgetProps {
     id?: string;
@@ -15,9 +16,11 @@ export interface PollWidgetProps {
     options: string[]; // Hasta 4 opciones
     results?: Record<string, number>;
     isPreview?: boolean;
+    theme?: any;
 }
 
-export default function PollWidget({ id, moduleId, creatorId, question, options: initialOptions, results: dbResults, isPreview }: PollWidgetProps) {
+export default function PollWidget({ id, moduleId, creatorId, question, options: initialOptions, results: dbResults, isPreview, theme }: PollWidgetProps) {
+    const skin = getSkin(theme?.activeSkin);
     const activeId = moduleId || id || '';
     const [hasVoted, setHasVoted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,8 +111,8 @@ export default function PollWidget({ id, moduleId, creatorId, question, options:
     };
 
     return (
-        <div className="w-full bg-gray-900/60 backdrop-blur-md rounded-3xl p-6 border border-gray-800 shadow-xl relative overflow-hidden my-4 group">
-            <h3 className="text-xl font-bold text-white mb-6 leading-snug">{question}</h3>
+        <div className="w-full h-full flex flex-col relative group text-current">
+            <h3 className="text-xl font-bold mb-6 leading-snug text-current">{question}</h3>
 
             <div className="space-y-3">
                 {initialOptions.map((option, index) => {
@@ -122,10 +125,10 @@ export default function PollWidget({ id, moduleId, creatorId, question, options:
                                 <button
                                     onClick={() => handleVote(index)}
                                     disabled={isSubmitting}
-                                    className="w-full text-left bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700/50 rounded-2xl p-4 transition-all duration-300 font-medium text-white shadow-sm flex items-center justify-between group-hover:border-purple-500/30"
+                                    className="w-full text-left bg-black/10 hover:bg-black/20 border border-current/20 opacity-80 hover:opacity-100 rounded-2xl p-4 transition-all duration-300 font-medium shadow-sm flex items-center justify-between text-current"
                                 >
                                     <span>{option}</span>
-                                    <div className="w-5 h-5 rounded-full border-2 border-gray-600 group-hover:border-purple-500 opacity-50"></div>
+                                    <div className="w-5 h-5 rounded-full border-2 border-current opacity-50"></div>
                                 </button>
                             ) : (
                                 <div className="relative w-full bg-gray-800/30 rounded-2xl overflow-hidden border border-gray-700/30">
@@ -135,7 +138,7 @@ export default function PollWidget({ id, moduleId, creatorId, question, options:
                                         transition={{ duration: 0.8, ease: "easeOut" }}
                                         className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-600/50 to-blue-500/50"
                                     ></motion.div>
-                                    <div className={`relative p-4 flex justify-between items-center z-10 w-full ${getContrastYIQ('#a855f7')}`}> {/* purple-500 is roughly #a855f7 */}
+                                    <div className="relative p-4 flex justify-between items-center z-10 w-full text-white">
                                         <span className="font-semibold drop-shadow-md z-10 flex-1 truncate pr-2">{option}</span>
                                         <span className="font-bold text-sm drop-shadow-md z-10">{percentage}%</span>
                                     </div>

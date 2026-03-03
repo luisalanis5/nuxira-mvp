@@ -1,9 +1,14 @@
 'use client';
 import React, { useState, useRef } from 'react';
 
-type ProfileMediaEngineProps = { videoBgUrl?: string; audioBgUrl?: string; };
+type ProfileMediaEngineProps = {
+    videoBgUrl?: string;
+    backgroundImage?: string;
+    audioBgUrl?: string;
+    primaryColor?: string; // Requerido para el overlay
+};
 
-export default function ProfileMediaEngine({ videoBgUrl, audioBgUrl }: ProfileMediaEngineProps) {
+export default function ProfileMediaEngine({ videoBgUrl, backgroundImage, audioBgUrl, primaryColor = '#000000' }: ProfileMediaEngineProps) {
     const [isMuted, setIsMuted] = useState(true);
     const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -19,14 +24,20 @@ export default function ProfileMediaEngine({ videoBgUrl, audioBgUrl }: ProfileMe
 
     return (
         <>
-            {videoBgUrl ? (
+            {(videoBgUrl || backgroundImage) && (
                 <>
+                    {/* Imagen cruda en el fondo absoluto super al fondo */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={videoBgUrl} alt="Background" className="fixed top-0 left-0 w-full h-full object-cover -z-20" />
-                    <div className="fixed inset-0 bg-black/60 pointer-events-none -z-10"></div>
+                    <img
+                        src={(videoBgUrl || backgroundImage) as string}
+                        alt="Background"
+                        className="fixed inset-0 w-full h-full object-cover -z-20"
+                    />
+                    {/* El RenderEngine aplicará el overlay bg-black/60, aquí dejamos uno genérico como base por seguridad */}
+                    <div
+                        className="fixed inset-0 -z-10 bg-black/40 pointer-events-none"
+                    ></div>
                 </>
-            ) : (
-                <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-slate-900 to-black overflow-hidden"></div>
             )}
 
             {audioBgUrl && (
