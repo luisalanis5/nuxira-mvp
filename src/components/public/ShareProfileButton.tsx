@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { APP_NAME } from '@/config/brand';
 
 type ShareProfileButtonProps = {
     username: string;
@@ -18,7 +19,7 @@ export default function ShareProfileButton({ username, displayName, primaryColor
             try {
                 await navigator.share({
                     title: `Perfil de ${displayName}`,
-                    text: `¡Echa un vistazo al perfil de ${displayName} en Nexia!`,
+                    text: `¡Echa un vistazo al perfil de ${displayName} en ${APP_NAME}!`,
                     url: url
                 });
             } catch (err) {

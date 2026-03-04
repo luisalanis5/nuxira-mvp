@@ -109,10 +109,12 @@ export function getUnifiedModuleStyles(theme: any, isMediaOrAd: boolean = false)
     let localSafeTextColor = isMediaOrAd ? globalTextColor : getSafeTextColor(dynamicBg);
 
     if (usesSkinCard) {
-        dynamicBg = hasImage ? (isDarkPrimary ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.3)') : 'transparent';
+        // OVERRIDE: Si hay imagen, la única forma de garantizar legibilidad en Custom Skins 
+        // es forzar un overlay oscuro y texto blanco con la clase backdrop-blur
+        dynamicBg = hasImage ? 'rgba(0,0,0,0.5)' : 'transparent';
         dynamicBoxShadow = 'none';
         dynamicBorder = 'none';
-        localSafeTextColor = hasImage ? getSafeTextColor(dynamicBg) : globalTextColor;
+        localSafeTextColor = hasImage ? '#FFFFFF' : globalTextColor;
 
         if (activeSkinId === 'cyber_glow') {
             dynamicBoxShadow = `0 0 20px ${chroma(primaryColor).alpha(0.6).css()}`;

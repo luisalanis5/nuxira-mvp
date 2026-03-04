@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import Image from 'next/image';
+import { APP_NAME, APP_DOMAIN } from '@/config/brand';
 import ModuleEditor from '@/components/dashboard/ModuleEditor';
 import RenderEngine from '@/components/public/RenderEngine';
 import LinksList from '@/components/public/LinksList';
@@ -216,10 +217,11 @@ export default function CreatorDashboard() {
 
         try {
             const docRef = doc(db, 'creators', auth.currentUser.uid);
+            // Simulate Premium Upgrade
             await updateDoc(docRef, { isPremium: true });
 
             setCreatorData(prev => prev ? { ...prev, isPremium: true } : null);
-            toast.success("⭐ ¡Felicidades! Ya eres Nexia Pro.");
+            toast.success(`⭐ ¡Felicidades! Ya eres ${APP_NAME} Pro.`);
         } catch (error) {
             console.error("Error al hacerse premium:", error);
             toast.error("Error al procesar el pago.");
@@ -325,7 +327,7 @@ export default function CreatorDashboard() {
 
             <div className="relative z-10 max-w-3xl mx-auto">
                 <header className="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
-                    <div>
+                    <div className="flex items-center gap-4">
                         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
                             Centro de Mando
                         </h1>
@@ -393,7 +395,7 @@ export default function CreatorDashboard() {
 
                                         <div className="flex-1 min-w-0 w-full flex flex-col items-center md:items-start">
                                             <h2 className="font-bold text-xl break-words w-full">{displayName || creatorData.profile.displayName}</h2>
-                                            <p className="text-sm text-gray-500 mb-6 break-words w-full">nexia.app/{creatorData.username}</p>
+                                            <p className="text-sm text-gray-500 mb-6 break-words w-full">{APP_DOMAIN}/{creatorData.username}</p>
 
                                             <a
                                                 href={`/${creatorData.username}`}

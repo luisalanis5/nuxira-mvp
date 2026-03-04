@@ -11,26 +11,27 @@ import ShareProfileButton from '@/components/public/ShareProfileButton';
 import { getSkin } from '@/config/themes';
 import { FONT_MAP } from '@/config/fonts';
 import { getUnifiedModuleStyles, getSafeTextColor } from '@/lib/utils/themeUtils';
+import { APP_NAME } from '@/config/brand';
 
 export const revalidate = 0;
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
 
-  if (!adminDb) return { title: 'Nexia' };
+  if (!adminDb) return { title: APP_NAME };
 
   const snapshot = await adminDb.collection('creators').where('username', '==', username).limit(1).get();
-  if (snapshot.empty) return { title: 'No encontrado | Nexia' };
+  if (snapshot.empty) return { title: `No encontrado | ${APP_NAME}` };
 
   const creatorData = snapshot.docs[0].data();
   const profile = creatorData.profile || {};
 
   return {
-    title: `${profile.displayName || `@${username}`} | Nexia`,
-    description: profile.bio || "Creador en Nexia",
+    title: `${profile.displayName || `@${username}`} | ${APP_NAME}`,
+    description: profile.bio || `Creador en ${APP_NAME}`,
     openGraph: {
-      title: `${profile.displayName || `@${username}`} | Nexia`,
-      description: profile.bio || "Creador en Nexia",
+      title: `${profile.displayName || `@${username}`} | ${APP_NAME}`,
+      description: profile.bio || `Creador en ${APP_NAME}`,
       images: [profile.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`],
     }
   };
@@ -148,6 +149,9 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
   // Unificar estilo del Header con el resto de módulos
   const headerStyles = getUnifiedModuleStyles(theme, false);
 
+  // Calcular Glow Fuerte para Textos Claros
+  const isHeaderWhite = headerStyles.color === '#FFFFFF';
+
   const activeSkinId = theme.activeSkin || 'default';
   const isDefaultSkin = activeSkinId === 'default';
   const hasImage = !!theme.videoBgUrl || !!theme.backgroundImage;
@@ -155,6 +159,10 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
   // Si no es el skin por defecto, usamos el contenedor del skin.
   // Si tiene imagen, forzamos que el contenedor base sea transparente para no tapar la imagen
   const mainClass = `min-h-screen w-full overflow-x-hidden antialiased ${!isDefaultSkin ? skin.containerClass : 'bg-[#0d0d12]'} ${hasImage ? '!bg-transparent !bg-none' : ''}`;
+
+  // Extraemos variables globales para el RenderEngine
+  const globalStyles = getUnifiedModuleStyles(theme);
+
   const mainStyle = {
     fontFamily: customFontFamily,
     color: isDefaultSkin ? textColor : undefined
@@ -178,6 +186,11 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
           className="fixed inset-0 z-0 opacity-10 pointer-events-none"
           style={{ backgroundImage: `radial-gradient(circle at 50% 0%, ${primaryColor} 0%, transparent 50%)` }}
         />
+      )}
+
+      {/* OVERLAY GLOBAL PARA FONDOS: Oscurecimiento forzado detrás de todos los módulos */}
+      {hasImage && (
+        <div className={`fixed inset-0 ${textColor === '#FFFFFF' ? 'bg-black/50' : 'bg-white/20'} z-0 pointer-events-none`} />
       )}
 
       <div className="relative z-10 max-w-md mx-auto p-6 pt-16 flex flex-col items-center">
@@ -209,12 +222,12 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
           </div>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-bold leading-tight break-words text-left flex items-center" style={{ fontFamily: 'inherit', color: 'inherit', textShadow: theme.mode === 'dark' ? '0 0 8px rgba(255,255,255,0.4)' : 'none' }}>
+            <h1 className="text-3xl font-bold leading-tight break-words text-left flex items-center text-current" style={{ fontFamily: 'inherit', color: isHeaderWhite ? '#FFFFFF' : 'inherit' }}>
               {profile.displayName || `@${username}`}
               {(isPremium || isVerified) && <VerifiedBadge />}
             </h1>
-            <p className="text-lg break-words text-left mt-1 opacity-80" style={{ fontFamily: 'inherit', color: 'inherit', textShadow: theme.mode === 'dark' ? '0 0 8px rgba(255,255,255,0.4)' : 'none' }}>
-              {profile.bio || "Creador en Nexia"}
+            <p className="text-lg break-words text-left mt-1 text-current" style={{ fontFamily: 'inherit', color: isHeaderWhite ? '#FFFFFF' : 'inherit' }}>
+              {profile.bio || `Creador en ${APP_NAME}`}
             </p>
             <span className="text-sm mt-1 block text-left opacity-60">
               nexia.app/{username}
@@ -234,7 +247,7 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
         <div className="mt-16 mb-8 text-center text-sm font-medium flex flex-col items-center gap-2" style={{ color: textColor }}>
           <div className="w-10 h-1 rounded-full mb-2 opacity-50" style={{ backgroundColor: textColor }}></div>
           <a href="/" className="hover:opacity-70 transition-opacity">
-            Potenciado por <span className="font-bold tracking-widest uppercase" style={{ color: theme.primaryColor }}>NEXIA</span>
+            Potenciado por <span className="font-bold tracking-widest uppercase" style={{ color: theme.primaryColor }}>{APP_NAME}</span>
           </a>
         </div>
       </div>

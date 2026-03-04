@@ -16,6 +16,7 @@ import LockedContent from './modules/LockedContent';
 import { fontDictionary } from '../../utils/fonts';
 import { getUnifiedModuleStyles } from '@/lib/utils/themeUtils';
 import { getSkin } from '@/config/themes';
+import { APP_NAME } from '@/config/brand';
 
 type LayoutBlock = {
     type: string;
@@ -58,12 +59,8 @@ export default function RenderEngine({ layout, theme }: RenderEngineProps) {
     const fontClass = theme?.fontFamily && fontDictionary[theme.fontFamily]
         ? fontDictionary[theme.fontFamily].className
         : fontDictionary['Inter'].className;
-    // OVERLAY DINÁMICO
-    const hasImage = !!theme?.backgroundImage || !!theme?.videoBgUrl || !!theme?.audioBgUrl;
-    const globalStyles = getUnifiedModuleStyles(theme);
-    const isDarkPrimary = globalStyles.color === '#FFFFFF';
-    const overlayClass = isDarkPrimary ? 'bg-black/50' : 'bg-white/20';
 
+    const globalStyles = getUnifiedModuleStyles(theme);
     const activeSkinId = theme?.activeSkin || 'default';
     const usesSkinCard = activeSkinId !== 'default';
     const skin = getSkin(activeSkinId as any);
@@ -73,10 +70,6 @@ export default function RenderEngine({ layout, theme }: RenderEngineProps) {
             className={`w-full flex flex-col gap-6 mt-8 ${fontClass} relative z-10`}
             style={{ color: globalStyles.color, fontFamily: 'inherit' }}
         >
-            {/* OVERLAY PARA FONDOS: Oscurecimiento forzado si hay imagen de fondo */}
-            {hasImage && (
-                <div className={`fixed inset-0 ${overlayClass} -z-10 pointer-events-none`} />
-            )}
 
             {layout.map((block) => {
                 const Component = allowedComponents[block.type];
@@ -121,7 +114,7 @@ export default function RenderEngine({ layout, theme }: RenderEngineProps) {
                         className="flex items-center justify-center gap-2 py-3 px-6 mt-12 mb-6 mx-auto w-max rounded-full backdrop-blur-md bg-white/10 border border-white/20 shadow-lg transition-transform hover:scale-105 text-current"
                         style={{ fontFamily: 'inherit' }}
                     >
-                        ⚡ Crea tu propio perfil en Nexia
+                        ⚡ Crea tu propio perfil en {APP_NAME}
                     </button>
 
                     {/* MODAL DE CONVERSIÓN */}
@@ -135,9 +128,9 @@ export default function RenderEngine({ layout, theme }: RenderEngineProps) {
                                     ✕
                                 </button>
 
-                                <h3 className="text-2xl font-bold text-white mb-2">Únete a Nexia</h3>
+                                <h3 className="text-2xl font-bold text-white mb-2">Bienvenido a {APP_NAME}</h3>
                                 <p className="text-gray-400 text-sm mb-8">
-                                    Crea tu página unificada y comparte todo lo que eres en un solo enlace.
+                                    Conecta tu mundo aquí. Crea tu página unificada en un solo enlace.
                                 </p>
 
                                 <div className="flex flex-col gap-3 w-full">

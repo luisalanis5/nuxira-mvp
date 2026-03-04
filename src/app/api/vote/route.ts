@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { APP_NAME } from '@/config/brand';
 
 // Inicializar el cliente de Redis apuntando al clúster Serverless de Upstash
 const redis = new Redis({
@@ -26,14 +27,14 @@ export async function POST(req: NextRequest) {
     // const ip = req.headers.get('x-forwarded-for') || 'anon';
     // await redis.set(`${redisKey}:voted:${ip}`, "1", { ex: 86400 }); // Expira en 1 día
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: 'Voto registrado a velocidad luz',
       currentCount: newCount // Devolvemos el dato fresco para confirmar al cliente
     }, { status: 200 });
 
   } catch (error) {
     console.error('Error procesando el voto:', error);
-    return NextResponse.json({ error: 'Error interno de Nexia' }, { status: 500 });
+    return NextResponse.json({ error: `Error interno de ${APP_NAME}` }, { status: 500 });
   }
 }

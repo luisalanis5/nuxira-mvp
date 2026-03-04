@@ -5,6 +5,7 @@ import { db, auth } from '@/lib/firebase/client';
 import { doc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { isKnownEmbedUrl } from '@/components/public/MediaEmbed';
 import toast from 'react-hot-toast';
+import { APP_NAME } from '@/config/brand';
 
 type ModuleItem = {
   id: string;
@@ -62,7 +63,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
     try {
       const docRef = doc(db, 'creators', auth.currentUser.uid);
       await updateDoc(docRef, { isPremium: true });
-      toast.success("¡Felicidades! Ahora eres usuario Nexia PRO 👑");
+      toast.success(`¡Felicidades! Ahora eres usuario ${APP_NAME} PRO 👑`);
       setShowProModal(false);
       onUpdate();
     } catch (err) {
@@ -517,8 +518,8 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
                 <div className="col-span-1 md:col-span-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex items-center gap-3">
                   <span className="text-xl">💰</span>
                   <div className="flex-1">
-                    <p className="text-yellow-300 font-bold text-xs">Comisión Nexia: 15%</p>
-                    <p className="text-gray-400 text-[11px]">Si cobras $10, recibes $8.50. Nexia retiene $1.50 por procesamiento y plataforma.</p>
+                    <p className="text-yellow-300 font-bold text-xs">Comisión {APP_NAME}: 15%</p>
+                    <p className="text-gray-400 text-[11px]">Si cobras $10, recibes $8.50. {APP_NAME} retiene $1.50 por procesamiento y plataforma.</p>
                   </div>
                   <div className="text-right">
                     <p className="text-white font-black text-sm">85%</p>
@@ -780,7 +781,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
                 </svg>
               </div>
 
-              <h3 className="text-3xl font-black text-white mb-2 tracking-tight">Nexia <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">PRO</span></h3>
+              <h3 className="text-3xl font-black text-white mb-2 tracking-tight">{APP_NAME} <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">PRO</span></h3>
               <p className="text-gray-400 text-sm mb-8 leading-relaxed">
                 Toma el control absoluto de tu monetización. Añade tus propios Banners de Afiliados, remueve los anuncios de la plataforma y obtén métricas avanzadas.
               </p>
@@ -792,7 +793,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
                 </div>
                 <div className="flex items-center gap-3 text-sm text-gray-300">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">✓</span>
-                  Elimina Anuncios Aleatorios de Nexia
+                  Elimina Anuncios Aleatorios de {APP_NAME}
                 </div>
               </div>
 

@@ -5,6 +5,7 @@ import { signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/lib/firebase/client';
 import toast from 'react-hot-toast';
+import { APP_NAME } from '@/config/brand';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#0d0d12] flex flex-col items-center justify-center p-4 selection:bg-[#00FFCC] selection:text-black">
       <div className="bg-gray-900/60 backdrop-blur-xl p-10 rounded-3xl border border-gray-800 text-center max-w-sm w-full shadow-2xl">
-        <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">NEXIA</h1>
+        <h1 className="text-4xl font-black text-white mb-2 tracking-tighter uppercase">{APP_NAME}</h1>
         <p className="text-gray-400 mb-10 text-sm">Tu Centro de Mando</p>
 
         <button

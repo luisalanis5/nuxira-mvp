@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { APP_NAME } from '@/config/brand';
 
 export async function POST(req: NextRequest) {
     if (!adminDb) {
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'moduleId es requerido' }, { status: 400 });
         }
 
-        // Lógica para Anuncios Globales de la Plataforma (Nexia Ad Engine)
+        // Lógica para Anuncios Globales de la Plataforma (Ad Engine)
         if (isGlobalAd) {
             const adRef = adminDb.collection('platform_ads').doc(moduleId);
 

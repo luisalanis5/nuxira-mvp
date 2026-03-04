@@ -3,8 +3,10 @@ import { FONT_VARIABLES } from "@/config/fonts";
 import "./globals.css";
 import { Toaster } from 'react-hot-toast';
 
+import { APP_NAME } from '@/config/brand';
+
 export const metadata: Metadata = {
-  title: "Nexia",
+  title: APP_NAME,
   description: "Plataforma de Creadores",
 };
 

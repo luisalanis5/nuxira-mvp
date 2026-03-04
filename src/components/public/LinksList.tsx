@@ -76,6 +76,9 @@ export default function LinksList({ modules, theme, username }: LinksListProps) 
                 // Aplicar Unified Module Styles
                 const styles = getUnifiedModuleStyles(theme);
 
+                // Configurar Glow de texto fuerte para fuentes claras
+                const isTextWhite = styles.color === '#FFFFFF';
+
                 return (
                     <a
                         key={mod.id}
@@ -100,7 +103,7 @@ export default function LinksList({ modules, theme, username }: LinksListProps) 
 
                         <div className="relative z-10 flex items-center justify-center w-full gap-3 pointer-events-none">
                             {getIconForUrl(linkData.url)}
-                            <span className="font-semibold transition-colors text-lg text-current" style={{ fontFamily: 'inherit', color: 'inherit', textShadow: theme?.mode === 'dark' ? '0 0 8px rgba(255,255,255,0.4)' : 'none' }}>
+                            <span className="font-semibold transition-colors text-lg text-current" style={{ fontFamily: 'inherit', color: isTextWhite ? '#FFFFFF' : 'inherit' }}>
                                 {linkData.name}
                             </span>
                         </div>
