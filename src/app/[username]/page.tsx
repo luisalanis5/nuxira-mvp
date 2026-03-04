@@ -209,11 +209,11 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
           </div>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-bold leading-tight break-words text-left flex items-center" style={{ fontFamily: 'inherit', color: 'inherit' }}>
+            <h1 className="text-3xl font-bold leading-tight break-words text-left flex items-center" style={{ fontFamily: 'inherit', color: 'inherit', textShadow: theme.mode === 'dark' ? '0 0 8px rgba(255,255,255,0.4)' : 'none' }}>
               {profile.displayName || `@${username}`}
               {(isPremium || isVerified) && <VerifiedBadge />}
             </h1>
-            <p className="text-lg break-words text-left mt-1 opacity-80" style={{ fontFamily: 'inherit', color: 'inherit' }}>
+            <p className="text-lg break-words text-left mt-1 opacity-80" style={{ fontFamily: 'inherit', color: 'inherit', textShadow: theme.mode === 'dark' ? '0 0 8px rgba(255,255,255,0.4)' : 'none' }}>
               {profile.bio || "Creador en Nexia"}
             </p>
             <span className="text-sm mt-1 block text-left opacity-60">

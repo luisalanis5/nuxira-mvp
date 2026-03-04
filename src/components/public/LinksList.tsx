@@ -100,7 +100,7 @@ export default function LinksList({ modules, theme, username }: LinksListProps) 
 
                         <div className="relative z-10 flex items-center justify-center w-full gap-3 pointer-events-none">
                             {getIconForUrl(linkData.url)}
-                            <span className="font-semibold transition-colors text-lg text-current" style={{ fontFamily: 'inherit', color: 'inherit' }}>
+                            <span className="font-semibold transition-colors text-lg text-current" style={{ fontFamily: 'inherit', color: 'inherit', textShadow: theme?.mode === 'dark' ? '0 0 8px rgba(255,255,255,0.4)' : 'none' }}>
                                 {linkData.name}
                             </span>
                         </div>
