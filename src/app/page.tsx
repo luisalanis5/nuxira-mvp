@@ -127,6 +127,7 @@ export default function HomePage() {
         <div className="flex gap-4">
           <Link href="/privacy" className="hover:text-white transition-colors">Políticas de Privacidad</Link>
           <Link href="/terms" className="hover:text-white transition-colors">Términos y Condiciones</Link>
+          <Link href="/delete-account-instructions" className="hover:text-[#c2cdff] transition-colors">Instrucciones de Eliminación</Link>
         </div>
       </footer>
     </div>

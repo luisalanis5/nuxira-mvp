@@ -14,7 +14,7 @@ export interface ImageGalleryProps {
 // Rutea URLs externas a través del proxy para sortear CORS (Google Photos, etc.)
 function getSafeImageUrl(url: string): string {
     if (!url) return url;
-    // Base64 y URLs Nexia van directo
+    // Base64 y URLs Nuxira van directo
     if (url.startsWith('data:') || url.startsWith('/') || url.includes('firebasestorage.googleapis.com')) return url;
     // Rutar todo lo demás por el proxy
     return `/api/image-proxy?url=${encodeURIComponent(url)}`;

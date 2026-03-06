@@ -14,7 +14,7 @@ type PollingWidgetProps = {
 export default function PollingWidget({ creatorId, pollId, title, options, sponsoredBy }: PollingWidgetProps) {
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  
+
   // Estado local para los votos (Optimistic UI)
   const [localVotes, setLocalVotes] = useState(options);
   const totalVotes = localVotes.reduce((acc, opt) => acc + opt.initialVotes, 0);
@@ -25,8 +25,8 @@ export default function PollingWidget({ creatorId, pollId, title, options, spons
     // 1. Actualización Optimista (UI instantánea, sin esperar al servidor)
     setHasVoted(true);
     setSelectedOption(optionId);
-    
-    setLocalVotes(prev => prev.map(opt => 
+
+    setLocalVotes(prev => prev.map(opt =>
       opt.id === optionId ? { ...opt, initialVotes: opt.initialVotes + 1 } : opt
     ));
 
@@ -45,16 +45,15 @@ export default function PollingWidget({ creatorId, pollId, title, options, spons
   };
 
   const isSponsored = !!sponsoredBy;
-  const brandColor = sponsoredBy?.brandColor || '#00FFCC'; // Default Nexia Cyan
+  const brandColor = sponsoredBy?.brandColor || '#c2cdff'; // Default Nuxira Neon Blue
 
   return (
-    <div className={`relative w-full p-5 rounded-2xl overflow-hidden ${
-      isSponsored ? 'border border-transparent bg-gray-900' : 'bg-gray-800/50 backdrop-blur-md border border-gray-700/50'
-    }`}>
-      
+    <div className={`relative w-full p-5 rounded-2xl overflow-hidden ${isSponsored ? 'border border-transparent bg-gray-900' : 'bg-gray-800/50 backdrop-blur-md border border-gray-700/50'
+      }`}>
+
       {/* Efecto de marco brillante patrocinado (Volt Rush) */}
       {isSponsored && (
-        <div 
+        <div
           className="absolute inset-0 z-0 opacity-20 pointer-events-none"
           style={{ boxShadow: `inset 0 0 40px ${brandColor}` }}
         />
@@ -76,7 +75,7 @@ export default function PollingWidget({ creatorId, pollId, title, options, spons
                 onClick={() => handleVote(opt.id)}
                 disabled={hasVoted}
                 className="relative w-full text-left p-4 rounded-xl overflow-hidden transition-all duration-300"
-                style={{ 
+                style={{
                   backgroundColor: 'rgba(31, 41, 55, 0.4)', // gray-800
                   borderColor: isSelected ? brandColor : 'transparent',
                   borderWidth: isSelected ? '2px' : '0px'
@@ -91,7 +90,7 @@ export default function PollingWidget({ creatorId, pollId, title, options, spons
                       animate={{ width: `${percentage}%`, opacity: 0.8 }}
                       transition={{ duration: 0.8, ease: "easeOut" }}
                       className="absolute left-0 top-0 bottom-0 z-0"
-                      style={{ 
+                      style={{
                         background: `linear-gradient(90deg, ${brandColor}40, ${brandColor}90)`, // El "Destello Eléctrico"
                         filter: isSelected ? 'drop-shadow(0 0 10px rgba(0,255,204,0.5))' : 'none'
                       }}

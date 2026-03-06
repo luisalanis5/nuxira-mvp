@@ -514,7 +514,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
                   </div>
                 </div>
 
-                {/* Comisión Nexia */}
+                {/* Comisión Nuxira */}
                 <div className="col-span-1 md:col-span-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex items-center gap-3">
                   <span className="text-xl">💰</span>
                   <div className="flex-1">
@@ -755,7 +755,7 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
         )}
       </div>
 
-      {/* MODAL ESPECTACULAR NEXIA PRO */}
+      {/* MODAL ESPECTACULAR NUXIRA PRO */}
       {showProModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop con Blur extremo */}

@@ -22,10 +22,10 @@ export default function NewsFeed({ id, creatorId, title = "Últimas Novedades", 
     const [localUserId, setLocalUserId] = useState<string>('');
 
     useEffect(() => {
-        let uid = localStorage.getItem('nexia_local_uid');
+        let uid = localStorage.getItem('nuxira_local_uid');
         if (!uid) {
             uid = 'anon_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('nexia_local_uid', uid);
+            localStorage.setItem('nuxira_local_uid', uid);
         }
         setLocalUserId(uid);
 

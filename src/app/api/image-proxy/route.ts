@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     try {
         const response = await fetch(imageUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; NexiaBot/1.0)',
+                'User-Agent': 'Mozilla/5.0 (compatible; NuxiraBot/1.0)',
                 'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
                 'Referer': 'https://www.google.com/',
             },

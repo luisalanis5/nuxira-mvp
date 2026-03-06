@@ -105,7 +105,7 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
     }
   });
 
-  // 3c. Lógica Híbrida de Monetización: Inyectar Anuncios de la Plataforma (Nexia Ad Engine) a usuarios Free
+  // 3c. Lógica Híbrida de Monetización: Inyectar Anuncios de la Plataforma (Nuxira Ad Engine) a usuarios Free
   console.log("¿Es premium?:", isPremium);
   if (!isPremium) {
     try {
@@ -231,7 +231,7 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
               {profile.bio || `Creador en ${APP_NAME}`}
             </p>
             <span className="text-sm mt-1 block text-left opacity-60">
-              nexia.app/{username}
+              nuxira.app/{username}
             </span>
           </div>
         </div>
