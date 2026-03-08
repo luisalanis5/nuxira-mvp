@@ -99,15 +99,11 @@ export default function CreatorDashboard() {
             const urlParams = new URLSearchParams(window.location.search);
             const connectStatus = urlParams.get('connect');
 
-            if (connectStatus === 'success') {
-                toast.success("¡Cuenta de Stripe conectada exitosamente! 🏦");
-                // Limpiar URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-                // Re-fetch creator data to update Stripe status
+            if (connectStatus === 'success' || connectStatus === 'refresh') {
+                // The actual verification and toast is handled by StripeConnectZone via /api/stripe/verify-connect.
+                // Here we only refresh the creator data so the component gets fresh Firestore values.
                 await updateCreatorData();
-            } else if (connectStatus === 'refresh') {
-                toast.error("El proceso de Stripe expiró. Inténtalo de nuevo.");
-                window.history.replaceState({}, document.title, window.location.pathname);
+                // URL cleanup is handled by StripeConnectZone after the verify call completes.
             }
 
             // Fase 2: Restricción por Email no verificado
