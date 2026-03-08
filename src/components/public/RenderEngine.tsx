@@ -106,52 +106,6 @@ export default function RenderEngine({ layout, theme }: RenderEngineProps) {
                 );
             })}
 
-            {/* CTA Viral */}
-            {!authChecking && !currentUser && (
-                <>
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex items-center justify-center gap-2 py-3 px-6 mt-12 mb-6 mx-auto w-max rounded-full backdrop-blur-md bg-white/10 border border-white/20 shadow-lg transition-transform hover:scale-105 text-current"
-                        style={{ fontFamily: 'inherit' }}
-                    >
-                        ⚡ Crea tu propio perfil en {APP_NAME}
-                    </button>
-
-                    {/* MODAL DE CONVERSIÓN */}
-                    {isModalOpen && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-[#1f2028] border border-gray-700 w-full max-w-sm rounded-[2rem] p-8 shadow-2xl relative flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
-                                <button
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-                                >
-                                    ✕
-                                </button>
-
-                                <h3 className="text-2xl font-bold text-white mb-2">Bienvenido a {APP_NAME}</h3>
-                                <p className="text-gray-400 text-sm mb-8">
-                                    Conecta tu mundo aquí. Crea tu página unificada en un solo enlace.
-                                </p>
-
-                                <div className="flex flex-col gap-3 w-full">
-                                    <Link
-                                        href="/dashboard/login"
-                                        className="w-full bg-[#00FFCC] text-black font-bold py-3 rounded-xl hover:scale-105 transition-transform"
-                                    >
-                                        Iniciar Sesión
-                                    </Link>
-                                    <Link
-                                        href="/dashboard/login"
-                                        className="w-full bg-transparent border border-gray-600 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors"
-                                    >
-                                        Crear Cuenta
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </>
-            )}
         </div>
     );
 }

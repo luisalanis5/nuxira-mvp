@@ -12,9 +12,10 @@ type QnAWidgetProps = {
     title: string;
     placeholder: string;
     theme?: any;
+    publicQuestions?: any[];
 };
 
-export default function QnAWidget({ title, placeholder, creatorId, theme }: QnAWidgetProps) {
+export default function QnAWidget({ title, placeholder, creatorId, theme, publicQuestions = [] }: QnAWidgetProps) {
     const primaryColor = theme?.primaryColor || '#FFFFFF';
     const buttonTextColor = getSafeTextColor(primaryColor);
     const [question, setQuestion] = useState('');
@@ -81,6 +82,22 @@ export default function QnAWidget({ title, placeholder, creatorId, theme }: QnAW
                             {isSending ? 'Enviando...' : 'Enviar Anónimamente'}
                         </button>
                     </form>
+                )}
+
+                {/* HISTORIAL PÚBLICO DE PREGUNTAS Y RESPUESTAS */}
+                {publicQuestions && publicQuestions.length > 0 && (
+                    <div className="mt-8 space-y-4 border-t border-white/10 pt-6">
+                        <h4 className="font-bold text-xs tracking-widest uppercase opacity-70 mb-4 text-center">Respuestas Recientes</h4>
+                        {publicQuestions.map((q: any) => (
+                            <div key={q.id} className="bg-black/20 rounded-2xl p-5 border border-white/5 backdrop-blur-sm shadow-inner transition-colors hover:bg-black/30">
+                                <p className="font-medium text-[15px] mb-3 opacity-90 leading-relaxed text-current">"{q.content}"</p>
+                                <div className="pl-4 border-l-2 border-current mt-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-1.5 hidden md:block">Respuesta del Creador</p>
+                                    <p className="text-sm font-semibold opacity-100 text-current">{q.replyText}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>

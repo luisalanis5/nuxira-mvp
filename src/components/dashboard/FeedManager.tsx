@@ -2,16 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth, storage } from '@/lib/firebase/client';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, onSnapshot, serverTimestamp, deleteDoc, doc, where, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 
-export default function FeedManager() {
+export default function FeedManager({ feedModules, creatorId }: { feedModules: any[], creatorId: string }) {
     const [content, setContent] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [isPublishing, setIsPublishing] = useState(false);
+    const [isMigrating, setIsMigrating] = useState(false);
     const [posts, setPosts] = useState<any[]>([]);
+    const [orphanCount, setOrphanCount] = useState(0);
+
+    // Default al primer módulo Feed disponible
+    const [selectedModuleId, setSelectedModuleId] = useState<string>(feedModules[0]?.id || '');
+
+    // Actualizar selección si cambian los módulos y el actual ya no existe
+    useEffect(() => {
+        if (feedModules.length > 0 && !feedModules.find(m => m.id === selectedModuleId)) {
+            setSelectedModuleId(feedModules[0].id);
+        }
+    }, [feedModules, selectedModuleId]);
 
     useEffect(() => {
         // Bloqueo de variables indefinidas
@@ -19,7 +31,13 @@ export default function FeedManager() {
 
         const creatorId = auth.currentUser.uid;
         const feedRef = collection(db, 'creators', creatorId, 'feed_posts');
-        const q = query(feedRef, orderBy('createdAt', 'desc'));
+
+        // VINCULACIÓN RELACIONAL SECRETA: Consultamos solo los del módulo activo
+        const q = query(
+            feedRef,
+            where('moduleId', '==', selectedModuleId),
+            // No podemos ordenar por createdAt si usamos where sin índice compuesto genérico, pero NextJS lo soportará si ordenamos localmente o creamos index
+        );
 
         const unsubscribe = onSnapshot(
             q,
@@ -28,7 +46,15 @@ export default function FeedManager() {
                 // Deduplicate locally to avoid React 18 strict mode + Firebase cache duplicates
                 const uniquePostsMap = new Map();
                 fetchedPosts.forEach(post => uniquePostsMap.set(post.id, post));
-                setPosts(Array.from(uniquePostsMap.values()));
+
+                // Ordenamiento local para sortear la falta de índice DB
+                const sortedPosts = Array.from(uniquePostsMap.values()).sort((a: any, b: any) => {
+                    const timeA = a.createdAt?.toMillis() || 0;
+                    const timeB = b.createdAt?.toMillis() || 0;
+                    return timeB - timeA;
+                });
+
+                setPosts(sortedPosts);
             },
             (error) => {
                 console.error("[FIREBASE DEBUG] Fallo onSnapshot en FeedManager | Creador:", creatorId, " | Error:", error.message);
@@ -36,7 +62,58 @@ export default function FeedManager() {
         );
 
         return () => unsubscribe();
-    }, []);
+    }, [selectedModuleId, creatorId]);
+
+    // Buscador de Posts Huérfanos (sin moduleId)
+    useEffect(() => {
+        if (!auth.currentUser?.uid || !selectedModuleId) return;
+
+        const feedRef = collection(db, 'creators', auth.currentUser.uid, 'feed_posts');
+        const qOrphans = query(feedRef);
+        // Traemos todos para contar los que no tienen moduleId (las queries nativas de firestore para "no existe campo" requieren indexación compleja, mejor filtrar client-side para la migración de 1 vez)
+
+        const unsubs = onSnapshot(qOrphans, (snapshot) => {
+            let count = 0;
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (!data.moduleId) count++;
+            });
+            setOrphanCount(count);
+        });
+
+        return () => unsubs();
+    }, [selectedModuleId]);
+
+    const handleMigrateOrphans = async () => {
+        if (!auth.currentUser?.uid || !selectedModuleId) return;
+        if (!confirm(`¿Quieres vincular tus ${orphanCount} publicaciones antiguas a este Módulo Feed actual?`)) return;
+
+        setIsMigrating(true);
+        try {
+            const feedRef = collection(db, 'creators', auth.currentUser.uid, 'feed_posts');
+            const snapshot = await getDocs(query(feedRef));
+
+            let migrated = 0;
+            const batch = writeBatch(db); // Podríamos usar batch si son menos de 500
+
+            for (const document of snapshot.docs) {
+                const data = document.data();
+                if (!data.moduleId) {
+                    const docRef = doc(db, 'creators', auth.currentUser.uid, 'feed_posts', document.id);
+                    await updateDoc(docRef, { moduleId: selectedModuleId });
+                    migrated++;
+                }
+            }
+
+            toast.success(`Se vincularon ${migrated} publicaciones antiguas con éxito.`);
+            setOrphanCount(0);
+        } catch (error) {
+            console.error("Error migrando", error);
+            toast.error("Hubo un error al migrar los posts antiguos.");
+        } finally {
+            setIsMigrating(false);
+        }
+    };
 
     const handlePublish = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,6 +125,7 @@ export default function FeedManager() {
             await addDoc(feedRef, {
                 content,
                 imageUrl,
+                moduleId: selectedModuleId, // INYECCIÓN RELACIONAL!
                 likes: 0,
                 likedBy: [],
                 createdAt: serverTimestamp()
@@ -77,12 +155,31 @@ export default function FeedManager() {
 
     return (
         <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 mt-8 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                <span>📰</span> Creador Studio (Feed Manager)
-            </h3>
-            <p className="text-gray-400 text-sm mb-6">
-                Publica actualizaciones, noticias y fotos directamente en tu perfil público para tus seguidores.
-            </p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                    <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                        <span>📰</span> Creador Studio (Feed Manager)
+                    </h3>
+                    <p className="text-gray-400 text-sm">
+                        Publica actualizaciones, noticias y fotos en tu muro de novedades.
+                    </p>
+                </div>
+
+                {feedModules.length > 1 && (
+                    <div className="bg-gray-800/80 p-2 rounded-xl border border-gray-700/50 flex flex-col shrink-0 min-w-[200px]">
+                        <span className="text-[10px] uppercase font-bold text-gray-400 mb-1 ml-1 px-1">Enviando a:</span>
+                        <select
+                            value={selectedModuleId}
+                            onChange={(e) => setSelectedModuleId(e.target.value)}
+                            className="w-full bg-gray-900 text-white font-bold border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                        >
+                            {feedModules.map(m => (
+                                <option key={m.id} value={m.id}>{m.title}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
 
             <form onSubmit={handlePublish} className="bg-gray-800/40 p-5 rounded-2xl mb-8 space-y-4 border border-gray-700/80 shadow-inner">
                 <textarea
@@ -144,6 +241,26 @@ export default function FeedManager() {
                 </div>
             </form>
 
+            {/* Aviso de Migración si hay posts huérfanos */}
+            {orphanCount > 0 && feedModules.length > 0 && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div>
+                            <p className="text-yellow-400 font-bold text-sm">Actualización del Sistema</p>
+                            <p className="text-gray-400 text-xs">Tienes {orphanCount} publicación(es) antigua(s) que no están vinculadas a ningún Módulo Feed. ¿Deseas vincularlas al módulo actual "{feedModules.find(m => m.id === selectedModuleId)?.title}"?</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleMigrateOrphans}
+                        disabled={isMigrating}
+                        className="px-4 py-2 bg-yellow-500 text-black text-xs font-bold rounded-lg hover:bg-yellow-400 transition-colors shrink-0 disabled:opacity-50"
+                    >
+                        {isMigrating ? 'Vinculando...' : 'Vincular Posts Antiguos'}
+                    </button>
+                </div>
+            )}
+
             {/* Historial de Posts */}
             <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Tus Publicaciones Recientes</h4>
             <div className="space-y-4">
@@ -161,12 +278,12 @@ export default function FeedManager() {
                         )}
                         <div className="text-xs text-gray-500 mt-3 flex justify-between">
                             <span>{post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleDateString() : 'Justo ahora'}</span>
-                            <span className="flex items-center gap-1">❤️ {post.likes || 0}</span>
+                            <span className="flex items-center gap-1">❤️ {post.likedBy?.length || post.likes || 0}</span>
                         </div>
 
                         <button
                             onClick={() => handleDelete(post.id)}
-                            className="absolute top-4 right-4 p-2 text-gray-500 bg-gray-900/50 hover:bg-red-500/20 hover:text-red-400 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-500/30"
+                            className="absolute top-4 right-4 p-2 text-gray-500 bg-gray-900/50 hover:bg-red-500/20 hover:text-red-400 rounded-xl opacity-100 md:opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-500/30"
                             title="Eliminar Publicación"
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

@@ -73,13 +73,12 @@ export default function DeleteAccountZone() {
                 await signInWithPopup(auth, provider);
             }
 
-            // 1. Delete user documents and subcollections in Firestore
-            // (Depends on your schema structure. Assuming a 'users' collection with 'links' subcollection)
-            const userRef = doc(db, 'users', user.uid);
+            // 1. Eliminar documentos del usuario y subcolecciones en Firestore
+            const userRef = doc(db, 'creators', user.uid);
 
             try {
-                const linksSnapshot = await getDocs(collection(userRef, 'links'));
-                const deletePromises = linksSnapshot.docs.map(linkDoc => deleteDoc(linkDoc.ref));
+                const notificationsSnapshot = await getDocs(collection(userRef, 'notifications'));
+                const deletePromises = notificationsSnapshot.docs.map(nDoc => deleteDoc(nDoc.ref));
                 await Promise.all(deletePromises);
 
                 await deleteDoc(userRef);
@@ -148,7 +147,7 @@ export default function DeleteAccountZone() {
                             </div>
                         )}
 
-                        {!auth.currentUser?.providerData.some(p => p.providerId !== 'password') && (
+                        {!auth.currentUser?.providerData?.some(p => p.providerId !== 'password') && (
                             <div className="space-y-3 mb-4">
                                 <label htmlFor="current-password" className="block text-sm font-medium text-gray-300">
                                     Contraseña Actual

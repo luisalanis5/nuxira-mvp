@@ -35,17 +35,18 @@ export default function LockedContent({ id, creatorId, title, description, price
     const handleUnlock = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch('/api/paywall/unlock', {
+            const res = await fetch('/api/stripe/checkout-locked', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ moduleId: id, creatorId })
+                body: JSON.stringify({ moduleId: id, creatorId, price, title })
             });
             const data = await res.json();
-            if (res.ok && data.success && data.secretContent) {
-                setSecretUrl(data.secretContent);
-                setIsUnlocked(true);
+
+            if (res.ok && data.url) {
+                // Redirigir al fan a pagar
+                window.location.href = data.url;
             } else {
-                toast.error(`⚠️ Error: ${data.error || 'No se pudo validar el pago.'}`);
+                toast.error(`⚠️ Error: ${data.details || data.error || 'No se pudo iniciar el pago.'}`);
             }
         } catch (error: any) {
             toast.error(`❌ Error de conexión: ${error.message || 'Verifica tu internet.'}`);
@@ -55,6 +56,9 @@ export default function LockedContent({ id, creatorId, title, description, price
     };
 
     // --- Estado Desbloqueado ---
+    // NOTA MVP: Actualmente esta UI temporal lee "isUnlocked" pero el flujo real regresará
+    // a la URL con ?unlock=ID_DEL_MODULO y un webhook se encargará de registrar la compra.
+    // Por ahora, en esta fase, requeriríamos modificar el componente si se desea lectura instantánea de la DB.
     if (isUnlocked && secretUrl) {
         const embedUrl = getEmbedUrl(secretUrl);
         return (
@@ -114,7 +118,7 @@ export default function LockedContent({ id, creatorId, title, description, price
 
                 <div className="flex items-center gap-2 mb-3">
                     <span className="text-2xl font-black text-white">${price}</span>
-                    <span className="text-xs text-gray-500">USD · pago único</span>
+                    <span className="text-xs text-gray-500">MXN · pago único</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-500 mb-6">
                     <span>💳</span> Pago seguro con Stripe · Tarjeta / Apple Pay / Google Pay

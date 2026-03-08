@@ -1,7 +1,7 @@
 {
-    "name": "Nexia",
-    "short_name": "Nexia",
-    "description": "Tu plataforma de creadores y links.",
+    "name": "Nuxira",
+    "short_name": "Nuxira",
+    "description": "Tu centro de comando digital",
     "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#0d0d12",

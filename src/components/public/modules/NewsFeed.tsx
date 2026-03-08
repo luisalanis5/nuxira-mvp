@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, orderBy, onSnapshot, limit, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, limit, doc, updateDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { isKnownEmbedUrl } from '@/components/public/MediaEmbed';
@@ -10,16 +10,18 @@ import MediaEmbed from '@/components/public/MediaEmbed';
 import { getSkin } from '@/config/themes';
 
 export interface NewsFeedProps {
-    id: string;
+    id?: string;
+    moduleId?: string;
     creatorId: string;
     title?: string;
     theme?: any;
 }
 
-export default function NewsFeed({ id, creatorId, title = "Últimas Novedades", theme }: NewsFeedProps) {
+export default function NewsFeed({ id, moduleId, creatorId, title = "Últimas Novedades", theme }: NewsFeedProps) {
     const skin = getSkin(theme?.activeSkin);
     const [posts, setPosts] = useState<any[]>([]);
     const [localUserId, setLocalUserId] = useState<string>('');
+    const actualId = id || moduleId;
 
     useEffect(() => {
         let uid = localStorage.getItem('nuxira_local_uid');
@@ -31,11 +33,17 @@ export default function NewsFeed({ id, creatorId, title = "Últimas Novedades", 
 
         // Bloqueo de variables indefinidas y prevención de rutas malformadas
         if (!creatorId || typeof creatorId !== 'string' || creatorId.includes('undefined')) return;
-        if (id && id.startsWith('temp-')) return;
+        if (!actualId || actualId.startsWith('temp-')) return;
 
         // Escuchamos la colección feed_posts dentro del documento del creador
         const feedRef = collection(db, 'creators', creatorId, 'feed_posts');
-        const q = query(feedRef, orderBy('createdAt', 'desc'), limit(10));
+
+        // VINCULACIÓN RELACIONAL: Consultamos solo los de este módulo específico
+        const q = query(
+            feedRef,
+            where('moduleId', '==', actualId),
+            limit(10)
+        );
 
         const unsubscribe = onSnapshot(
             q,
@@ -44,9 +52,17 @@ export default function NewsFeed({ id, creatorId, title = "Últimas Novedades", 
                     id: doc.id,
                     ...doc.data()
                 }));
+
+                // Ordenamiento local para sortear la falta de índice compuesto
+                const sortedPosts = newPosts.sort((a: any, b: any) => {
+                    const timeA = a.createdAt?.toMillis() || 0;
+                    const timeB = b.createdAt?.toMillis() || 0;
+                    return timeB - timeA;
+                });
+
                 setPosts((prev) => {
-                    const isEqual = JSON.stringify(prev) === JSON.stringify(newPosts);
-                    return isEqual ? prev : newPosts;
+                    const isEqual = JSON.stringify(prev) === JSON.stringify(sortedPosts);
+                    return isEqual ? prev : sortedPosts;
                 });
             },
             (error: any) => {

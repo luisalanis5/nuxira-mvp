@@ -23,52 +23,28 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
   const [saving, setSaving] = useState(false);
   const [showProModal, setShowProModal] = useState(false);
   const [localModules, setLocalModules] = useState<ModuleItem[]>(modules);
-  const [questions, setQuestions] = useState<any[]>([]);
 
   React.useEffect(() => {
     setLocalModules(modules);
   }, [modules]);
 
-  useEffect(() => {
-    const fetchQuestions = async () => {
-      if (!auth.currentUser) return;
-      try {
-        const q = query(
-          collection(db, 'questions'),
-          where('receiverId', '==', auth.currentUser.uid)
-        );
-        const snaps = await getDocs(q);
-        const fetched = snaps.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-        setQuestions(fetched);
-      } catch (err) {
-        console.error("Error fetching questions:", err);
-      }
-    };
-    fetchQuestions();
-  }, []);
-
-  const handleDeleteQuestion = async (id: string) => {
-    if (!confirm('¿Eliminar esta pregunta anónima?')) return;
-    try {
-      await deleteDoc(doc(db, 'questions', id));
-      setQuestions(questions.filter(q => q.id !== id));
-    } catch (err) {
-      toast.error("Error eliminando..");
-    }
-  };
-
   const handleUpgrade = async () => {
     if (!auth.currentUser) return;
     setSaving(true);
     try {
-      const docRef = doc(db, 'creators', auth.currentUser.uid);
-      await updateDoc(docRef, { isPremium: true });
-      toast.success(`¡Felicidades! Ahora eres usuario ${APP_NAME} PRO 👑`);
-      setShowProModal(false);
-      onUpdate();
-    } catch (err) {
-      console.error("Error al actualizar a Pro", err);
-      toast.error("Error al procesar la solicitud.");
+      const response = await fetch('/api/stripe/checkout-premium', {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.details || data.error || "No URL returned");
+      }
+    } catch (err: any) {
+      console.error("Error iniciando pago Stripe", err);
+      toast.error(err.message || "Error al conectar con el servidor de pago.");
     } finally {
       setSaving(false);
     }
@@ -151,14 +127,26 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
       setLockedPreviewUrl(mod.props.previewImageUrl || '');
       setSecretContent(mod.props.secretContent || '');
     }
-
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
 
   const handleAddNew = (type: string) => {
     setAddingType(addingType === type ? null : type);
-    if (addingType !== type) {
-      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+  };
+
+  const toggleActive = async (moduleToToggle: ModuleItem) => {
+    if (!auth.currentUser) return;
+    setSaving(true);
+    try {
+      const docRef = doc(db, 'creators', auth.currentUser.uid);
+      const updatedModules = localModules.map(m => m.id === moduleToToggle.id ? { ...m, active: m.active === false ? true : false } : m);
+      setLocalModules(updatedModules);
+      await updateDoc(docRef, { modules: updatedModules });
+      onUpdate();
+    } catch (err) {
+      console.error("Error toggle module", err);
+      toast.error("Error al actualizar estado.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -322,8 +310,10 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
     }
   };
 
+  // Efectos de portal removidos, el renderizado de la interfaz de edición es puramente funcional In-Situ dentro del flujo de React.
+
   return (
-    <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 mt-8 shadow-2xl">
+    <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 mt-8 shadow-2xl relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h3 className="text-xl font-bold text-white">Gestor de Módulos</h3>
 
@@ -354,406 +344,422 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
         )}
       </div>
 
-      {addingType && (
-        <form onSubmit={handleCreateOrUpdateModule} className="bg-gray-800/40 p-5 rounded-2xl mb-8 space-y-4 border border-gray-700/80 shadow-inner">
-          <h4 className="text-sm font-bold text-[#00FFCC] uppercase tracking-wider mb-2">
-            {editingId ? 'Editar' : 'Añadir'} {addingType === 'links' ? 'Enlace' : addingType === 'media' ? 'Video/Live' : addingType === 'poll' ? 'Encuesta' : addingType === 'gallery' ? 'Galería' : addingType === 'feed' ? 'Novedades' : addingType === 'locked' ? 'Paywall' : 'Anuncio'}
-          </h4>
+      {/* IIFE para encapsular el Formulario y renderizar In-Situ */}
+      {(() => {
+        const renderForm = () => (
+          <div id="extractedFormWrapper" className="w-full relative bg-gray-900/95 border border-blue-500/40 rounded-3xl overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.15)] animate-[fadeIn_0.2s_ease-out] z-10 flex flex-col mt-4 mb-6">
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {addingType !== 'poll' && addingType !== 'gallery' && addingType !== 'feed' && (
-              <input
-                type="text" placeholder={addingType === 'nativeAd' ? "Título del Anuncio" : addingType === 'media' ? "Título del Video" : addingType === 'locked' ? "Título del Contenido VIP" : "Nombre del Enlace"}
-                required value={title} onChange={e => setTitle(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00FFCC] outline-none text-white transition-all"
-              />
-            )}
+            {/* Cabecera In-Situ */}
+            <div className="flex justify-between items-center p-5 border-b border-gray-800 bg-gray-900 z-20">
+              <h4 className="text-sm font-bold text-[#00FFCC] uppercase tracking-wider">
+                {editingId ? 'Editar' : 'Añadir'} {addingType === 'links' ? 'Enlace' : addingType === 'media' ? 'Video/Live' : addingType === 'poll' ? 'Encuesta' : addingType === 'gallery' ? 'Galería' : addingType === 'feed' ? 'Novedades' : addingType === 'locked' ? 'Paywall' : 'Anuncio'}
+              </h4>
+              <button type="button" onClick={resetForms} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-800 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
-            {addingType === 'links' && (
-              <input
-                type="url" placeholder="https://..." required value={url} onChange={e => setUrl(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00FFCC] outline-none text-white transition-all"
-              />
-            )}
-
-            {addingType === 'media' && (
-              <>
-                <input
-                  type="url" placeholder="URL del Video (YouTube/Twitch)" required value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#FF0055] outline-none text-white transition-all"
-                />
-                {!isKnownEmbedUrl(videoUrl) ? (
-                  <div className="col-span-1 md:col-span-2 space-y-1">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Portada (Opcional)</p>
+            {/* Contenido del Form */}
+            <div className="p-5">
+              <form id="moduleForm" onSubmit={handleCreateOrUpdateModule} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {addingType !== 'poll' && addingType !== 'gallery' && addingType !== 'feed' && (
                     <input
-                      type="url" placeholder="URL de imagen de portada (Imgur, etc.)" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#FF0055] outline-none text-white transition-all"
+                      type="text" placeholder={addingType === 'nativeAd' ? "Título del Anuncio" : addingType === 'media' ? "Título del Video" : addingType === 'locked' ? "Título del Contenido VIP" : "Nombre del Enlace"}
+                      required value={title} onChange={e => setTitle(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00FFCC] outline-none text-white transition-all"
                     />
-                    <p className="text-gray-500 text-[11px] ml-1">Sube tu imagen a <a href="https://imgur.com/upload" target="_blank" className="text-[#FF0055] hover:underline">Imgur.com</a> y pega el enlace directo aquí.</p>
-                  </div>
-                ) : (
-                  <p className="w-full text-xs font-bold text-[#00FFCC] bg-[#00FFCC]/10 p-3 rounded-xl border border-[#00FFCC]/20 text-center col-span-1 md:col-span-2">
-                    ✨ ¡Enlace Inteligente Detectado! Usaremos el reproductor oficial. No necesitas subir portada.
-                  </p>
-                )}
-                <p className="text-gray-400 text-[11px] col-span-1 md:col-span-2">
-                  Pega el enlace directo de tu video de YouTube, Spotify, TikTok o Twitch. No alojamos el archivo para que tu perfil cargue más rápido.
-                </p>
-              </>
-            )}
+                  )}
 
-            {addingType === 'nativeAd' && (
-              <>
-                <input
-                  type="text" placeholder="Descripción Corta" required value={adDescription} onChange={e => setAdDescription(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
-                />
-                <input
-                  type="url" placeholder="URL de Destino" required value={adUrl} onChange={e => setAdUrl(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
-                />
-                <input
-                  type="text" placeholder="Texto del Botón (ej. Ver Oferta)" required value={adCta} onChange={e => setAdCta(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
-                />
-                <div className="col-span-1 md:col-span-2 space-y-1">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Imagen del Anuncio (URL)</p>
-                  <input
-                    type="url" placeholder="URL de imagen (Imgur, Cloudinary, etc.)" value={adImage} onChange={e => setAdImage(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
-                  />
-                  <p className="text-gray-500 text-[11px] ml-1">Sube tu imagen a <a href="https://imgur.com/upload" target="_blank" className="text-[#7B61FF] hover:underline">Imgur.com</a> y pega el enlace directo.</p>
-                </div>
-              </>
-            )}
+                  {addingType === 'links' && (
+                    <input
+                      type="url" placeholder="https://..." required value={url} onChange={e => setUrl(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#00FFCC] outline-none text-white transition-all"
+                    />
+                  )}
 
-            {addingType === 'poll' && (
-              <div className="col-span-1 md:col-span-2 space-y-4">
-                <input
-                  type="text" placeholder="Pregunta (ej: ¿Qué contenido quieren ver mañana?)" required value={pollQuestion} onChange={e => setPollQuestion(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
-                />
-                <div className="grid md:grid-cols-2 gap-3">
-                  {pollOptions.map((opt, idx) => (
-                    <div key={idx} className="flex gap-2 relative">
+                  {addingType === 'media' && (
+                    <>
                       <input
-                        type="text" placeholder={`Opción ${idx + 1}`} required={idx < 2} value={opt} onChange={e => {
-                          const newOpts = [...pollOptions];
-                          newOpts[idx] = e.target.value;
-                          setPollOptions(newOpts);
-                        }}
-                        className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                        type="url" placeholder="URL del Video (YouTube/Twitch)" required value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#FF0055] outline-none text-white transition-all"
                       />
+                      {!isKnownEmbedUrl(videoUrl) ? (
+                        <div className="col-span-1 md:col-span-2 space-y-1">
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Portada (Opcional)</p>
+                          <input
+                            type="url" placeholder="URL de imagen de portada (Imgur, etc.)" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#FF0055] outline-none text-white transition-all"
+                          />
+                          <p className="text-gray-500 text-[11px] ml-1">Sube tu imagen a <a href="https://imgur.com/upload" target="_blank" className="text-[#FF0055] hover:underline">Imgur.com</a> y pega el enlace directo aquí.</p>
+                        </div>
+                      ) : (
+                        <p className="w-full text-xs font-bold text-[#00FFCC] bg-[#00FFCC]/10 p-3 rounded-xl border border-[#00FFCC]/20 text-center col-span-1 md:col-span-2">
+                          ✨ ¡Enlace Inteligente Detectado! Usaremos el reproductor oficial. No necesitas subir portada.
+                        </p>
+                      )}
+                      <p className="text-gray-400 text-[11px] col-span-1 md:col-span-2">
+                        Pega el enlace directo de tu video de YouTube, Spotify, TikTok o Twitch. No alojamos el archivo para que tu perfil cargue más rápido.
+                      </p>
+                    </>
+                  )}
+
+                  {addingType === 'nativeAd' && (
+                    <>
+                      <input
+                        type="text" placeholder="Descripción Corta" required value={adDescription} onChange={e => setAdDescription(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                      />
+                      <input
+                        type="url" placeholder="URL de Destino" required value={adUrl} onChange={e => setAdUrl(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                      />
+                      <input
+                        type="text" placeholder="Texto del Botón (ej. Ver Oferta)" required value={adCta} onChange={e => setAdCta(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                      />
+                      <div className="col-span-1 md:col-span-2 space-y-1">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Imagen del Anuncio (URL)</p>
+                        <input
+                          type="url" placeholder="URL de imagen (Imgur, Cloudinary, etc.)" value={adImage} onChange={e => setAdImage(e.target.value)}
+                          className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                        />
+                        <p className="text-gray-500 text-[11px] ml-1">Sube tu imagen a <a href="https://imgur.com/upload" target="_blank" className="text-[#7B61FF] hover:underline">Imgur.com</a> y pega el enlace directo.</p>
+                      </div>
+                    </>
+                  )}
+
+                  {addingType === 'poll' && (
+                    <div className="col-span-1 md:col-span-2 space-y-4">
+                      <input
+                        type="text" placeholder="Pregunta (ej: ¿Qué contenido quieren ver mañana?)" required value={pollQuestion} onChange={e => setPollQuestion(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                      />
+                      <div className="grid md:grid-cols-2 gap-3">
+                        {pollOptions.map((opt, idx) => (
+                          <div key={idx} className="flex gap-2 relative">
+                            <input
+                              type="text" placeholder={`Opción ${idx + 1}`} required={idx < 2} value={opt} onChange={e => {
+                                const newOpts = [...pollOptions];
+                                newOpts[idx] = e.target.value;
+                                setPollOptions(newOpts);
+                              }}
+                              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#7B61FF] outline-none text-white transition-all"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      {pollOptions.length < 4 && (
+                        <button type="button" onClick={() => setPollOptions([...pollOptions, ''])} className="text-[#7B61FF] font-bold text-sm tracking-wider uppercase hover:text-white transition-colors">+ Añadir Opción</button>
+                      )}
+                    </div>
+                  )}
+
+                  {addingType === 'gallery' && (
+                    <div className="col-span-1 md:col-span-2 space-y-4">
+                      <input
+                        type="text" placeholder="Título de la Galería (Opcional)" value={galleryTitle} onChange={e => setGalleryTitle(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none text-white transition-all"
+                      />
+
+                      {/* Info BYOS */}
+                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3 flex items-start gap-2">
+                        <span className="text-lg">📸</span>
+                        <div>
+                          <p className="text-orange-300 font-bold text-xs">¿Cómo agregar fotos?</p>
+                          <p className="text-gray-400 text-[11px] leading-relaxed mt-0.5">Sube tus fotos gratis a <a href="https://imgur.com/upload" target="_blank" className="text-orange-400 hover:underline font-bold">Imgur.com</a> o <a href="https://postimages.org" target="_blank" className="text-orange-400 hover:underline font-bold">PostImages.org</a> y pega los enlaces directos (.jpg/.png) abajo.</p>
+                        </div>
+                      </div>
+
+                      {/* Campos URL para cada imagen */}
+                      {galleryUrls.map((imgUrl, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <input
+                            type="url"
+                            placeholder={`URL imagen ${idx + 1} (https://i.imgur.com/...)`}
+                            value={imgUrl}
+                            onChange={e => {
+                              const updated = [...galleryUrls];
+                              updated[idx] = e.target.value;
+                              setGalleryUrls(updated);
+                            }}
+                            className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none text-white transition-all"
+                          />
+                          {galleryUrls.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setGalleryUrls(galleryUrls.filter((_: string, i: number) => i !== idx))}
+                              className="w-9 h-9 flex items-center justify-center text-red-400 bg-red-500/10 rounded-xl hover:bg-red-500/20 text-sm font-bold flex-shrink-0"
+                            >✕</button>
+                          )}
+                        </div>
+                      ))}
+
+                      {galleryUrls.length < 10 && (
+                        <button
+                          type="button"
+                          onClick={() => setGalleryUrls([...galleryUrls, ''])}
+                          className="w-full py-2.5 rounded-xl border border-dashed border-orange-500/40 text-orange-400 text-sm font-bold hover:bg-orange-500/10 transition-all"
+                        >+ Añadir otra imagen</button>
+                      )}
+                    </div>
+                  )}
+
+                  {addingType === 'locked' && (
+                    <>
+                      {!isPremium ? (
+                        <div className="col-span-1 md:col-span-2 bg-gray-900 border-2 border-green-500/20 p-8 rounded-2xl flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                          <div className="absolute inset-0 bg-green-500/5 group-hover:bg-green-500/10 transition-colors pointer-events-none"></div>
+                          <span className="text-5xl mb-4 drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]">🔒</span>
+                          <h5 className="text-white font-black text-xl mb-2">Función Premium</h5>
+                          <p className="text-gray-400 text-sm mb-6 max-w-sm">
+                            El módulo Paywall (contenido exclusivo de pago) está reservado para creadores <strong>Nuxira Pro</strong>.
+                          </p>
+                          <button type="button" onClick={() => setShowProModal(true)} className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)] transition-all hover:-translate-y-1">
+                            Desbloquear con Premium
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Cabecera + Comisión */}
+                          <div className="col-span-1 md:col-span-2 bg-green-500/10 border border-green-500/30 p-4 rounded-xl flex items-start gap-3">
+                            <span className="text-2xl mt-0.5">🔒</span>
+                            <div className="flex-1">
+                              <h5 className="text-green-400 font-bold text-sm mb-1">Paywall — Monetiza tu Contenido</h5>
+                              <p className="text-gray-300 text-xs leading-relaxed">Vende videos, fotos o links exclusivos a tus fans. Solo pagan una vez para acceder.</p>
+                            </div>
+                          </div>
+
+                          {/* Comisión Nuxira */}
+                          <div className="col-span-1 md:col-span-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex items-center gap-3">
+                            <span className="text-xl">💰</span>
+                            <div className="flex-1">
+                              <p className="text-yellow-300 font-bold text-xs">Comisión {APP_NAME}: 15%</p>
+                              <p className="text-gray-400 text-[11px]">Si cobras $100 MXN, recibes $85.00 MXN. {APP_NAME} retiene el 15% por procesamiento bancario y plataforma.</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-white font-black text-sm">85%</p>
+                              <p className="text-gray-500 text-[10px]">para ti</p>
+                            </div>
+                          </div>
+
+                          {/* Tipo de Contenido */}
+                          <div className="col-span-1 md:col-span-2 space-y-2">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo de Contenido Secreto</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { key: 'video', icon: '🎬', label: 'Video' },
+                                { key: 'photo', icon: '📸', label: 'Foto(s)' },
+                                { key: 'link', icon: '🔗', label: 'Link/Archivo' },
+                              ].map(opt => (
+                                <button
+                                  key={opt.key} type="button"
+                                  onClick={() => setSecretContent('')}
+                                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-bold transition-all ${secretContent === '' && opt.key === 'link' ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'}`}
+                                >
+                                  <span className="text-xl">{opt.icon}</span>
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Info básica */}
+                          <input
+                            type="text" placeholder="Título del contenido (Ej: Video exclusivo 30 min)" value={title} onChange={e => setTitle(e.target.value)} required
+                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
+                          />
+                          <input
+                            type="text" placeholder="Descripción corta para tus fans" value={lockedDesc} onChange={e => setLockedDesc(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
+                          />
+
+                          {/* Precio + ganancias en tiempo real */}
+                          <div className="col-span-1 md:col-span-2 space-y-1">
+                            <div className="flex gap-3 items-end">
+                              <div className="flex-1">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Precio (MXN)</p>
+                                <input
+                                  type="number" min="10" step="1" placeholder="Ej: 50.00" required value={lockedPrice} onChange={e => setLockedPrice(Number(e.target.value))}
+                                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
+                                />
+                              </div>
+                              <div className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-center min-w-[110px]">
+                                <p className="text-[10px] text-gray-500">Tú recibes</p>
+                                <p className="text-green-400 font-black text-lg">
+                                  {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(lockedPrice * 0.85)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Preview Difuminada con Base64 */}
+                          <div className="col-span-1 md:col-span-2 space-y-2">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Portada de Vista Previa (Difuminada)</p>
+                            {lockedPreviewUrl ? (
+                              <div className="flex items-center gap-3 bg-gray-800/60 p-3 rounded-xl border border-gray-700">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={lockedPreviewUrl} alt="preview" className="w-14 h-14 object-cover rounded-lg flex-shrink-0" />
+                                <span className="text-xs text-gray-400 flex-1 truncate">Portada cargada ✓</span>
+                                <button type="button" onClick={() => setLockedPreviewUrl('')} className="text-red-400 text-xs px-2 py-1 rounded-lg bg-red-500/10">✕</button>
+                              </div>
+                            ) : (
+                              <input
+                                type="url" placeholder="URL de portada difuminada (https://i.imgur.com/...)" value={lockedPreviewUrl} onChange={e => setLockedPreviewUrl(e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
+                              />
+                            )}
+                          </div>
+
+                          {/* Contenido Secreto */}
+                          <div className="col-span-1 md:col-span-2 space-y-2">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Contenido Que Verán Después de Pagar</p>
+                            <input
+                              type="url" placeholder="YouTube, Vimeo, Google Drive, Dropbox, o cualquier URL..." required value={secretContent} onChange={e => setSecretContent(e.target.value)}
+                              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
+                            />
+                            <div className="grid grid-cols-3 gap-2 mt-1">
+                              {[
+                                { icon: '▶️', label: 'YouTube / Vimeo', hint: 'El video se muestra directo' },
+                                { icon: '📁', label: 'Google Drive / Dropbox', hint: 'Activa enlace público antes' },
+                                { icon: '🔗', label: 'Cualquier URL', hint: 'Grupos privados, Notion, etc.' },
+                              ].map((tip, i) => (
+                                <div key={i} className="text-center p-2 bg-gray-900/60 rounded-lg border border-gray-800">
+                                  <p className="text-sm">{tip.icon}</p>
+                                  <p className="text-[10px] font-bold text-gray-400">{tip.label}</p>
+                                  <p className="text-[9px] text-gray-600">{tip.hint}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Método de pago */}
+                          <div className="col-span-1 md:col-span-2 bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 flex items-start gap-3">
+                            <span className="text-lg">💳</span>
+                            <div>
+                              <p className="text-blue-300 font-bold text-xs mb-0.5">Método de Pago: Stripe</p>
+                              <p className="text-gray-400 text-[11px] leading-relaxed">El cobro se procesa via Stripe. Tus fans pueden pagar con tarjeta de crédito, débito o Apple/Google Pay. Los fondos llegan a tu cuenta en 2-5 días hábiles.</p>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {addingType === 'feed' && (
+                        <div className="col-span-1 md:col-span-2 space-y-4">
+                          <input
+                            type="text" placeholder="Título de la sección (ej: Últimas Novedades)" required value={feedTitle} onChange={e => setFeedTitle(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white transition-all"
+                          />
+                          <p className="text-gray-400 text-xs italic">
+                            Nota: Al guardar este módulo habilitarás el tablón de novedades en tu perfil público. Podrás publicar textos e imágenes en él desde la nueva sección del "Feed Manager" del centro de mando.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* Footer In-Situ */}
+            <div className="flex justify-end p-5 border-t border-gray-800 bg-gray-900 z-20 gap-3">
+              <button type="button" onClick={resetForms} className="px-6 py-3 text-gray-400 hover:text-white text-sm font-bold transition-colors">Cancelar</button>
+              <button type="button" onClick={(e) => { e.preventDefault(); const f = e.currentTarget.closest('#extractedFormWrapper')?.querySelector('form'); if (f) f.requestSubmit(); }} disabled={saving} className="px-8 py-3 bg-white text-black text-sm font-bold rounded-xl disabled:opacity-50 hover:bg-gray-200 transition-transform active:scale-95 shadow-lg">
+                {saving ? 'Guardando...' : (editingId ? 'Actualizar Módulo' : 'Guardar Módulo')}
+              </button>
+            </div>
+
+          </div>
+        );
+
+        return (
+          <>
+            {addingType && !editingId && renderForm()}
+
+            {/* Listas de Módulos Activos Agrupados */}
+            <div className="space-y-6 pt-2">
+              {localModules.length === 0 && <p className="text-gray-500 text-sm italic text-center py-4 border border-dashed border-gray-800 rounded-2xl">No tienes módulos activos aún. ¡Crea el primero!</p>}
+
+              {/* Enlaces Estáticos */}
+              {localModules.filter(m => m.type === 'links').length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest pl-2">Enlaces Estáticos</h4>
+                  {localModules.filter(m => m.type === 'links').map((mod, idx, arr) => (
+                    <div key={mod.id} className="w-full flex flex-col gap-3">
+                      <div id={`module-card-${mod.id}`} className="flex justify-between items-center p-4 bg-gray-800/40 backdrop-blur-sm border border-gray-700/80 rounded-2xl hover:border-gray-500 hover:bg-gray-800 transition-all group shadow-sm">
+                        <div className="flex flex-col gap-1 mr-4">
+                          <button onClick={() => handleMove(mod, 'up')} disabled={idx === 0 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Subir">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                          </button>
+                          <button onClick={() => handleMove(mod, 'down')} disabled={idx === arr.length - 1 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Bajar">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </button>
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0 mr-4">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap shrink-0">
+                            <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-md border shrink-0 bg-[#00FFCC]/10 text-[#00FFCC] border-[#00FFCC]/20">links</span>
+                            <span className="flex items-center gap-1.5 bg-white/5 text-gray-300 text-[10px] uppercase font-bold px-2 py-1 rounded-md border border-white/10 shrink-0"><span>👁️</span> {mod.clicks || 0} Clics</span>
+                            {mod.active === false && <span className="bg-red-500/20 text-red-500 text-[10px] uppercase font-bold px-2 py-1 rounded border border-red-500/30 shrink-0">Oculto</span>}
+                          </div>
+                          <p className={`font-bold text-white text-lg truncate ${mod.active === false ? 'opacity-50 line-through' : ''}`}>{mod.title}</p>
+                          {mod.items && <p className="text-sm text-gray-400 truncate">{mod.items[0]?.url}</p>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => toggleActive(mod)} disabled={saving} className="p-3 text-yellow-400 bg-yellow-400/5 hover:bg-yellow-400 hover:text-black border border-yellow-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100" title={mod.active === false ? "Mostrar en Perfil" : "Ocultar del Perfil"}>
+                            {mod.active === false ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>}
+                          </button>
+                          <button onClick={() => startEditing(mod)} disabled={saving} className="p-3 text-blue-400 bg-blue-400/5 hover:bg-blue-400 hover:text-white border border-blue-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                          <button onClick={() => handleDeleteModule(mod)} disabled={saving} className="p-3 text-red-400 bg-red-400/5 hover:bg-red-400 hover:text-white border border-red-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                        </div>
+                      </div>
+                      {editingId === mod.id && renderForm()}
                     </div>
                   ))}
                 </div>
-                {pollOptions.length < 4 && (
-                  <button type="button" onClick={() => setPollOptions([...pollOptions, ''])} className="text-[#7B61FF] font-bold text-sm tracking-wider uppercase hover:text-white transition-colors">+ Añadir Opción</button>
-                )}
-              </div>
-            )}
+              )}
 
-            {addingType === 'gallery' && (
-              <div className="col-span-1 md:col-span-2 space-y-4">
-                <input
-                  type="text" placeholder="Título de la Galería (Opcional)" value={galleryTitle} onChange={e => setGalleryTitle(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none text-white transition-all"
-                />
-
-                {/* Info BYOS */}
-                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-3 flex items-start gap-2">
-                  <span className="text-lg">📸</span>
-                  <div>
-                    <p className="text-orange-300 font-bold text-xs">¿Cómo agregar fotos?</p>
-                    <p className="text-gray-400 text-[11px] leading-relaxed mt-0.5">Sube tus fotos gratis a <a href="https://imgur.com/upload" target="_blank" className="text-orange-400 hover:underline font-bold">Imgur.com</a> o <a href="https://postimages.org" target="_blank" className="text-orange-400 hover:underline font-bold">PostImages.org</a> y pega los enlaces directos (.jpg/.png) abajo.</p>
-                  </div>
-                </div>
-
-                {/* Campos URL para cada imagen */}
-                {galleryUrls.map((imgUrl, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <input
-                      type="url"
-                      placeholder={`URL imagen ${idx + 1} (https://i.imgur.com/...)`}
-                      value={imgUrl}
-                      onChange={e => {
-                        const updated = [...galleryUrls];
-                        updated[idx] = e.target.value;
-                        setGalleryUrls(updated);
-                      }}
-                      className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none text-white transition-all"
-                    />
-                    {galleryUrls.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setGalleryUrls(galleryUrls.filter((_: string, i: number) => i !== idx))}
-                        className="w-9 h-9 flex items-center justify-center text-red-400 bg-red-500/10 rounded-xl hover:bg-red-500/20 text-sm font-bold flex-shrink-0"
-                      >✕</button>
-                    )}
-                  </div>
-                ))}
-
-                {galleryUrls.length < 10 && (
-                  <button
-                    type="button"
-                    onClick={() => setGalleryUrls([...galleryUrls, ''])}
-                    className="w-full py-2.5 rounded-xl border border-dashed border-orange-500/40 text-orange-400 text-sm font-bold hover:bg-orange-500/10 transition-all"
-                  >+ Añadir otra imagen</button>
-                )}
-              </div>
-            )}
-
-            {addingType === 'locked' && (
-              <>
-                {/* Cabecera + Comisión */}
-                <div className="col-span-1 md:col-span-2 bg-green-500/10 border border-green-500/30 p-4 rounded-xl flex items-start gap-3">
-                  <span className="text-2xl mt-0.5">🔒</span>
-                  <div className="flex-1">
-                    <h5 className="text-green-400 font-bold text-sm mb-1">Paywall — Monetiza tu Contenido</h5>
-                    <p className="text-gray-300 text-xs leading-relaxed">Vende videos, fotos o links exclusivos a tus fans. Solo pagan una vez para acceder.</p>
-                  </div>
-                </div>
-
-                {/* Comisión Nuxira */}
-                <div className="col-span-1 md:col-span-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 flex items-center gap-3">
-                  <span className="text-xl">💰</span>
-                  <div className="flex-1">
-                    <p className="text-yellow-300 font-bold text-xs">Comisión {APP_NAME}: 15%</p>
-                    <p className="text-gray-400 text-[11px]">Si cobras $10, recibes $8.50. {APP_NAME} retiene $1.50 por procesamiento y plataforma.</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-black text-sm">85%</p>
-                    <p className="text-gray-500 text-[10px]">para ti</p>
-                  </div>
-                </div>
-
-                {/* Tipo de Contenido */}
-                <div className="col-span-1 md:col-span-2 space-y-2">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo de Contenido Secreto</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { key: 'video', icon: '🎬', label: 'Video' },
-                      { key: 'photo', icon: '📸', label: 'Foto(s)' },
-                      { key: 'link', icon: '🔗', label: 'Link/Archivo' },
-                    ].map(opt => (
-                      <button
-                        key={opt.key} type="button"
-                        onClick={() => setSecretContent('')}
-                        className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-bold transition-all ${secretContent === '' && opt.key === 'link' ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600'}`}
-                      >
-                        <span className="text-xl">{opt.icon}</span>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Info básica */}
-                <input
-                  type="text" placeholder="Título del contenido (Ej: Video exclusivo 30 min)" value={title} onChange={e => setTitle(e.target.value)} required
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
-                />
-                <input
-                  type="text" placeholder="Descripción corta para tus fans" value={lockedDesc} onChange={e => setLockedDesc(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
-                />
-
-                {/* Precio + ganancias en tiempo real */}
-                <div className="col-span-1 md:col-span-2 space-y-1">
-                  <div className="flex gap-3 items-end">
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Precio (USD)</p>
-                      <input
-                        type="number" min="1" step="0.5" placeholder="Ej: 5.00" required value={lockedPrice} onChange={e => setLockedPrice(Number(e.target.value))}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
-                      />
-                    </div>
-                    <div className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-center min-w-[110px]">
-                      <p className="text-[10px] text-gray-500">Tú recibes</p>
-                      <p className="text-green-400 font-black text-lg">${(lockedPrice * 0.85).toFixed(2)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preview Difuminada con Base64 */}
-                <div className="col-span-1 md:col-span-2 space-y-2">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Portada de Vista Previa (Difuminada)</p>
-                  {lockedPreviewUrl ? (
-                    <div className="flex items-center gap-3 bg-gray-800/60 p-3 rounded-xl border border-gray-700">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={lockedPreviewUrl} alt="preview" className="w-14 h-14 object-cover rounded-lg flex-shrink-0" />
-                      <span className="text-xs text-gray-400 flex-1 truncate">Portada cargada ✓</span>
-                      <button type="button" onClick={() => setLockedPreviewUrl('')} className="text-red-400 text-xs px-2 py-1 rounded-lg bg-red-500/10">✕</button>
-                    </div>
-                  ) : (
-                    <input
-                      type="url" placeholder="URL de portada difuminada (https://i.imgur.com/...)" value={lockedPreviewUrl} onChange={e => setLockedPreviewUrl(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
-                    />
-                  )}
-                </div>
-
-                {/* Contenido Secreto */}
-                <div className="col-span-1 md:col-span-2 space-y-2">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Contenido Que Verán Después de Pagar</p>
-                  <input
-                    type="url" placeholder="YouTube, Vimeo, Google Drive, Dropbox, o cualquier URL..." required value={secretContent} onChange={e => setSecretContent(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green-500 outline-none text-white transition-all"
-                  />
-                  <div className="grid grid-cols-3 gap-2 mt-1">
-                    {[
-                      { icon: '▶️', label: 'YouTube / Vimeo', hint: 'El video se muestra directo' },
-                      { icon: '📁', label: 'Google Drive / Dropbox', hint: 'Activa enlace público antes' },
-                      { icon: '🔗', label: 'Cualquier URL', hint: 'Grupos privados, Notion, etc.' },
-                    ].map((tip, i) => (
-                      <div key={i} className="text-center p-2 bg-gray-900/60 rounded-lg border border-gray-800">
-                        <p className="text-sm">{tip.icon}</p>
-                        <p className="text-[10px] font-bold text-gray-400">{tip.label}</p>
-                        <p className="text-[9px] text-gray-600">{tip.hint}</p>
+              {/* Módulos Dinámicos */}
+              {localModules.filter(m => m.type !== 'links').length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest pl-2 mt-4">Módulos Dinámicos</h4>
+                  {localModules.filter(m => m.type !== 'links').map((mod, idx, arr) => (
+                    <div key={mod.id} className="w-full flex flex-col gap-3">
+                      <div id={`module-card-${mod.id}`} className="flex justify-between items-center p-4 bg-gray-800/40 backdrop-blur-sm border border-gray-700/80 rounded-2xl hover:border-gray-500 hover:bg-gray-800 transition-all group shadow-sm">
+                        <div className="flex flex-col gap-1 mr-4">
+                          <button onClick={() => handleMove(mod, 'up')} disabled={idx === 0 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Subir"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg></button>
+                          <button onClick={() => handleMove(mod, 'down')} disabled={idx === arr.length - 1 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Bajar"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></button>
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0 mr-4">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap shrink-0">
+                            <span className={`text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-md border shrink-0 ${mod.type === 'media' ? 'bg-[#FF0055]/10 text-[#FF0055] border-[#FF0055]/20' : mod.type === 'locked' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-[#7B61FF]/10 text-[#7B61FF] border-[#7B61FF]/20'}`}>{mod.type}</span>
+                            <span className="flex items-center gap-1.5 bg-white/5 text-gray-300 text-[10px] uppercase font-bold px-2 py-1 rounded-md border border-white/10 shrink-0"><span>👁️</span> {mod.clicks || 0} Clics</span>
+                            {mod.active === false && <span className="bg-red-500/20 text-red-500 text-[10px] uppercase font-bold px-2 py-1 rounded border border-red-500/30 shrink-0">Oculto</span>}
+                          </div>
+                          <p className={`font-bold text-white text-lg truncate ${mod.active === false ? 'opacity-50 line-through' : ''}`}>{mod.title}</p>
+                          {mod.type === 'media' && mod.props && <p className="text-sm text-gray-400 truncate">{mod.props.videoUrl} {mod.props.isLive && '(En Vivo)'}</p>}
+                          {mod.type === 'nativeAd' && mod.props && <p className="text-sm text-gray-400 truncate">{mod.props.description}</p>}
+                          {mod.type === 'poll' && mod.props && <p className="text-sm text-gray-400 truncate">{mod.props.question}</p>}
+                          {mod.type === 'gallery' && mod.props && <p className="text-sm text-gray-400 truncate">Galería: {mod.props.images?.length || 0} fotos</p>}
+                          {mod.type === 'feed' && mod.props && <p className="text-sm text-gray-400 truncate">Feed Dinámico</p>}
+                          {mod.type === 'locked' && mod.props && <p className="text-sm text-gray-400 truncate">Premium ($ {mod.props.price})</p>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => toggleActive(mod)} disabled={saving} className="p-3 text-yellow-400 bg-yellow-400/5 hover:bg-yellow-400 hover:text-black border border-yellow-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100" title={mod.active === false ? "Mostrar en Perfil" : "Ocultar del Perfil"}>
+                            {mod.active === false ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>}
+                          </button>
+                          <button onClick={() => startEditing(mod)} disabled={saving} className="p-3 text-blue-400 bg-blue-400/5 hover:bg-blue-400 hover:text-white border border-blue-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                          <button onClick={() => handleDeleteModule(mod)} disabled={saving} className="p-3 text-red-400 bg-red-400/5 hover:bg-red-400 hover:text-white border border-red-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                      {editingId === mod.id && renderForm()}
+                    </div>
+                  ))}
                 </div>
-
-                {/* Método de pago */}
-                <div className="col-span-1 md:col-span-2 bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 flex items-start gap-3">
-                  <span className="text-lg">💳</span>
-                  <div>
-                    <p className="text-blue-300 font-bold text-xs mb-0.5">Método de Pago: Stripe</p>
-                    <p className="text-gray-400 text-[11px] leading-relaxed">El cobro se procesa via Stripe. Tus fans pueden pagar con tarjeta de crédito, débito o Apple/Google Pay. Los fondos llegan a tu cuenta en 2-5 días hábiles.</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {addingType === 'feed' && (
-              <div className="col-span-1 md:col-span-2 space-y-4">
-                <input
-                  type="text" placeholder="Título de la sección (ej: Últimas Novedades)" required value={feedTitle} onChange={e => setFeedTitle(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white transition-all"
-                />
-                <p className="text-gray-400 text-xs italic">
-                  Nota: Al guardar este módulo habilitarás el tablón de novedades en tu perfil público. Podrás publicar textos e imágenes en él desde la nueva sección del "Feed Manager" del centro de mando.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button type="button" onClick={resetForms} className="px-6 py-3 text-gray-400 hover:text-white text-sm font-bold transition-colors">Cancelar</button>
-            <button type="submit" disabled={saving} className="px-8 py-3 bg-white text-black text-sm font-bold rounded-xl disabled:opacity-50 hover:bg-gray-200 transition-transform active:scale-95 shadow-lg">
-              {saving ? 'Guardando...' : (editingId ? 'Actualizar Módulo' : 'Guardar Módulo')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Listas de Módulos Activos Agrupados */}
-      <div className="space-y-6 pt-2">
-        {localModules.length === 0 && <p className="text-gray-500 text-sm italic text-center py-4 border border-dashed border-gray-800 rounded-2xl">No tienes módulos activos aún. ¡Crea el primero!</p>}
-
-        {/* Enlaces Estáticos */}
-        {localModules.filter(m => m.type === 'links').length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest pl-2">Enlaces Estáticos</h4>
-            {localModules.filter(m => m.type === 'links').map((mod, idx, arr) => (
-              <div key={mod.id} className="flex justify-between items-center p-4 bg-gray-800/40 backdrop-blur-sm border border-gray-700/80 rounded-2xl hover:border-gray-500 hover:bg-gray-800 transition-all group shadow-sm">
-                <div className="flex flex-col gap-1 mr-4">
-                  <button onClick={() => handleMove(mod, 'up')} disabled={idx === 0 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Subir">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                  </button>
-                  <button onClick={() => handleMove(mod, 'down')} disabled={idx === arr.length - 1 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Bajar">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </button>
-                </div>
-                <div className="flex flex-col flex-1 min-w-0 mr-4">
-                  <div className="flex items-center gap-3 mb-2 shrink-0">
-                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-md border shrink-0 bg-[#00FFCC]/10 text-[#00FFCC] border-[#00FFCC]/20">links</span>
-                    <span className="flex items-center gap-1.5 bg-white/5 text-gray-300 text-[10px] uppercase font-bold px-2 py-1 rounded-md border border-white/10 shrink-0"><span>👁️</span> {mod.clicks || 0} Clics</span>
-                  </div>
-                  <p className="font-bold text-white text-lg truncate">{mod.title}</p>
-                  {mod.items && <p className="text-sm text-gray-400 truncate">{mod.items[0]?.url}</p>}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => startEditing(mod)} disabled={saving} className="p-3 text-blue-400 bg-blue-400/5 hover:bg-blue-400 hover:text-white border border-blue-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                  <button onClick={() => handleDeleteModule(mod)} disabled={saving} className="p-3 text-red-400 bg-red-400/5 hover:bg-red-400 hover:text-white border border-red-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Módulos Dinámicos */}
-        {localModules.filter(m => m.type !== 'links').length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest pl-2 mt-4">Módulos Dinámicos</h4>
-            {localModules.filter(m => m.type !== 'links').map((mod, idx, arr) => (
-              <div key={mod.id} className="flex justify-between items-center p-4 bg-gray-800/40 backdrop-blur-sm border border-gray-700/80 rounded-2xl hover:border-gray-500 hover:bg-gray-800 transition-all group shadow-sm">
-                <div className="flex flex-col gap-1 mr-4">
-                  <button onClick={() => handleMove(mod, 'up')} disabled={idx === 0 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Subir"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg></button>
-                  <button onClick={() => handleMove(mod, 'down')} disabled={idx === arr.length - 1 || saving} className="p-1 text-gray-500 hover:text-white disabled:opacity-20 transition-colors bg-gray-900/50 rounded-md" title="Bajar"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></button>
-                </div>
-                <div className="flex flex-col flex-1 min-w-0 mr-4">
-                  <div className="flex items-center gap-3 mb-2 shrink-0">
-                    <span className={`text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-md border shrink-0 ${mod.type === 'media' ? 'bg-[#FF0055]/10 text-[#FF0055] border-[#FF0055]/20' : mod.type === 'locked' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-[#7B61FF]/10 text-[#7B61FF] border-[#7B61FF]/20'}`}>{mod.type}</span>
-                    <span className="flex items-center gap-1.5 bg-white/5 text-gray-300 text-[10px] uppercase font-bold px-2 py-1 rounded-md border border-white/10 shrink-0"><span>👁️</span> {mod.clicks || 0} Clics</span>
-                  </div>
-                  <p className="font-bold text-white text-lg truncate">{mod.title}</p>
-                  {mod.type === 'media' && mod.props && <p className="text-sm text-gray-400 truncate">{mod.props.videoUrl} {mod.props.isLive && '(En Vivo)'}</p>}
-                  {mod.type === 'nativeAd' && mod.props && <p className="text-sm text-gray-400 truncate">{mod.props.description}</p>}
-                  {mod.type === 'poll' && mod.props && <p className="text-sm text-gray-400 truncate">{mod.props.question}</p>}
-                  {mod.type === 'gallery' && mod.props && <p className="text-sm text-gray-400 truncate">Galería: {mod.props.images?.length || 0} fotos</p>}
-                  {mod.type === 'feed' && mod.props && <p className="text-sm text-gray-400 truncate">Feed Dinámico</p>}
-                  {mod.type === 'locked' && mod.props && <p className="text-sm text-gray-400 truncate">Premium ($ {mod.props.price})</p>}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => startEditing(mod)} disabled={saving} className="p-3 text-blue-400 bg-blue-400/5 hover:bg-blue-400 hover:text-white border border-blue-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                  <button onClick={() => handleDeleteModule(mod)} disabled={saving} className="p-3 text-red-400 bg-red-400/5 hover:bg-red-400 hover:text-white border border-red-400/20 rounded-xl transition-all shadow-sm opacity-50 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* --- BUZÓN DE PREGUNTAS (INBOX) --- */}
-      <div className="mt-12 bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-white flex items-center gap-2">
-            <span>💬</span> Mensajes Recibidos (Inbox)
-          </h3>
-          <span className="bg-purple-500/20 text-purple-400 text-xs font-bold px-3 py-1 rounded-full border border-purple-500/30">
-            {questions.length} Mensajes
-          </span>
-        </div>
-
-        {questions.length === 0 ? (
-          <p className="text-gray-500 text-sm italic text-center py-8 border border-dashed border-gray-800 rounded-2xl">Tu buzón está vacío. ¡Comparte tu perfil para recibir preguntas!</p>
-        ) : (
-          <div className="space-y-4">
-            {questions.map(q => (
-              <div key={q.id} className="p-5 bg-gray-800/40 backdrop-blur-sm border border-gray-700/80 rounded-2xl relative group hover:bg-gray-800 transition-colors shadow-sm">
-                <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-md border bg-purple-500/10 text-purple-400 border-purple-500/20 mb-3 inline-block">Anónimo</span>
-                <p className="text-white text-lg font-medium leading-relaxed">{q.content}</p>
-
-                {q.createdAt && (
-                  <p className="text-xs text-gray-500 mt-3 font-medium">
-                    {q.createdAt.toDate().toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
-                  </p>
-                )}
-
-                <button
-                  onClick={() => handleDeleteQuestion(q.id)}
-                  className="absolute top-4 right-4 p-2 text-gray-500 bg-gray-900/50 hover:bg-red-500/20 hover:text-red-400 rounded-xl opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-500/30"
-                  title="Eliminar Mensaje"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* MODAL ESPECTACULAR NUXIRA PRO */}
       {showProModal && (

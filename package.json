@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@react-email/components": "^1.0.8",
     "@stripe/stripe-js": "^8.8.0",
     "@types/chroma-js": "^3.1.2",
     "@upstash/redis": "^1.36.3",
@@ -27,7 +28,8 @@
     "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
     "recharts": "^3.7.0",
-    "stripe": "^20.4.0",
+    "resend": "^6.9.3",
+    "stripe": "^20.4.1",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.11"
   },

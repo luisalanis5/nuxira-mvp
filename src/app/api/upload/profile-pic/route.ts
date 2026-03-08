@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
 
         await adminDb.collection("creators").doc(userId).update({
-            "profile.avatarUrl": publicUrl
+            "avatarUrl": publicUrl
         });
 
         return NextResponse.json({ url: publicUrl });

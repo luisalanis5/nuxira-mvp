@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { adminDb } from '@/lib/firebase/admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
-    apiVersion: '2023-10-16' as any,
+    apiVersion: '2025-02-24.acacia' as any,
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_dummy';
@@ -51,6 +51,25 @@ export async function POST(req: Request) {
                     type: 'tip'
                 });
                 console.log(`Pago de ${session.amount_total} registrado para el creador ${creatorId}`);
+            } else if (creatorId && type === 'locked_content_unlock') {
+                const moduleId = session.metadata?.moduleId;
+                if (!adminDb) {
+                    console.error('adminDb no está inicializado');
+                    return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
+                }
+
+                // Registrar el pago del contenido bloqueado en Firestore
+                await adminDb.collection('payments').add({
+                    creatorId: creatorId,
+                    moduleId: moduleId,
+                    amount: session.amount_total,
+                    currency: session.currency,
+                    status: session.payment_status,
+                    stripeSessionId: session.id,
+                    createdAt: new Date(),
+                    type: 'locked_content_unlock'
+                });
+                console.log(`Venta de módulo ${moduleId} para creador ${creatorId} registrada correctamente.`);
             }
         } catch (error) {
             console.error('Error guardando en Firestore desde Webhook:', error);

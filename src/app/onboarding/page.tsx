@@ -21,7 +21,12 @@ export default function OnboardingPage() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
-                setUser(currentUser);
+                const isPasswordAuth = currentUser.providerData.some(p => p.providerId === 'password');
+                if (isPasswordAuth && !currentUser.emailVerified) {
+                    router.push('/verify-email');
+                } else {
+                    setUser(currentUser);
+                }
             } else {
                 router.push('/dashboard/login');
             }
@@ -77,10 +82,15 @@ export default function OnboardingPage() {
                 ? user.providerData[0].providerId
                 : 'password';
 
-            // Auto-fill displayName if OAuth, fallback to username
-            const displayName = user.displayName || username;
+            // Force reload to get updated profile info (displayName) from FirebaseAuth 
+            // since it was updated right before email verification
+            await user.reload();
+            const refreshedUser = auth.currentUser;
 
-            await createInitialProfile(user.uid, user.email!, username, providerId);
+            // Auto-fill displayName if OAuth, fallback to username
+            const displayName = refreshedUser?.displayName || user.displayName || username;
+
+            await createInitialProfile(user.uid, user.email!, username, providerId, displayName);
 
             toast.success("¡Bienvenido a Nuxira!");
             router.push('/dashboard');
@@ -131,7 +141,7 @@ export default function OnboardingPage() {
                             </label>
                             <div className="relative flex items-center">
                                 <span className="absolute left-4 text-gray-500 font-medium">
-                                    nuxira.app/
+                                    {process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '')}/
                                 </span>
                                 <input
                                     type="text"
@@ -164,10 +174,10 @@ export default function OnboardingPage() {
                             {/* Validation Messages */}
                             <div className="h-6 mt-1 flex items-center">
                                 {!isChecking && isAvailable === true && username && (
-                                    <span className="text-xs text-[#c2cdff]">¡Este enlace está disponible!</span>
+                                    <span className="text-xs text-[#c2cdff]">✅ ¡Disponible!</span>
                                 )}
                                 {!isChecking && isAvailable === false && username.length > 2 && (
-                                    <span className="text-xs text-red-400">Este nombre ya está en uso.</span>
+                                    <span className="text-xs text-red-400">❌ Nombre ocupado</span>
                                 )}
                                 {username.length > 0 && username.length < 3 && (
                                     <span className="text-xs text-gray-500">Mínimo 3 caracteres.</span>

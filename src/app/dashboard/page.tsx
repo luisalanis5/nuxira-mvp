@@ -5,7 +5,8 @@ import { auth, db, storage } from '@/lib/firebase/client';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, sendEmailVerification, updateProfile } from 'firebase/auth';
+import { getSmartAvatar } from '@/lib/firebase/profileUtils';
 import Image from 'next/image';
 import { APP_NAME, APP_DOMAIN } from '@/config/brand';
 import ModuleEditor from '@/components/dashboard/ModuleEditor';
@@ -15,6 +16,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import FeedManager from '@/components/dashboard/FeedManager';
 import AccountSettings from '@/components/dashboard/AccountSettings';
 import DeleteAccountZone from '@/components/dashboard/DeleteAccountZone';
+import VerificationBadgeZone from '@/components/dashboard/VerificationBadgeZone';
+import StripeConnectZone from '@/components/dashboard/StripeConnectZone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSkin } from '@/config/themes';
 import { FONT_WHITELIST, FONT_MAP } from '@/config/fonts';
@@ -22,29 +25,11 @@ import { fontDictionary } from '@/utils/fonts';
 import VerifiedBadge from '@/components/public/VerifiedBadge';
 import toast from 'react-hot-toast';
 import { getContrastYIQ, getSafeTextColor } from '@/lib/utils/themeUtils';
+import NotificationBell from '@/components/dashboard/NotificationBell';
+import WelcomeModal from '@/components/dashboard/WelcomeModal';
+import QAManager from '@/components/dashboard/QAManager';
 
-type CreatorData = {
-    profile: {
-        displayName: string;
-        bio: string;
-        avatarUrl: string;
-    };
-    username: string;
-    plan: string;
-    modules: any[];
-    theme?: {
-        primaryColor: string;
-        mode: string;
-        fontMode: string;
-        buttonStyle: string;
-        activeSkin: string;
-        videoBgUrl?: string;
-        audioBgUrl?: string;
-        fontFamily?: string;
-    };
-    isPremium?: boolean;
-    isVerified?: boolean;
-};
+import { CreatorProfile } from '@/lib/firebase/profileUtils';
 
 const THEME_COLORS = [
     { id: 'cyan_neon', hex: '#00FFCC', name: 'Cyan Neón' },
@@ -66,8 +51,10 @@ export default function CreatorDashboard() {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingPic, setIsUploadingPic] = useState(false);
+    const [isEmailVerified, setIsEmailVerified] = useState(true);
+    const [verificationSent, setVerificationSent] = useState(false);
 
-    const [creatorData, setCreatorData] = useState<CreatorData | null>(null);
+    const [creatorData, setCreatorData] = useState<CreatorProfile | null>(null);
 
     // Estados para el formulario y Theme 2.0
     const [displayName, setDisplayName] = useState('');
@@ -83,16 +70,52 @@ export default function CreatorDashboard() {
     const [audioBgUrl, setAudioBgUrl] = useState('');
     const [fontFamily, setFontFamily] = useState('Inter');
 
-    const [activeTab, setActiveTab] = useState<'basics' | 'design' | 'modules' | 'account'>('basics');
+    const [activeTab, setActiveTab] = useState<'overview' | 'appearance' | 'studio' | 'interaction' | 'settings'>('overview');
 
     // UI State para Mobile Preview
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
 
+    const updateCreatorData = async () => {
+        if (!auth.currentUser) return;
+        try {
+            const docRef = doc(db, 'creators', auth.currentUser.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setCreatorData(docSnap.data() as CreatorProfile);
+            }
+        } catch (error) {
+            console.error("Error re-fetching creator data:", error);
+        }
+    };
+
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const checkAuth = onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 router.push('/dashboard/login');
                 return;
+            }
+
+            // Verificar si volvemos de Stripe Connect
+            const urlParams = new URLSearchParams(window.location.search);
+            const connectStatus = urlParams.get('connect');
+
+            if (connectStatus === 'success') {
+                toast.success("¡Cuenta de Stripe conectada exitosamente! 🏦");
+                // Limpiar URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // Re-fetch creator data to update Stripe status
+                await updateCreatorData();
+            } else if (connectStatus === 'refresh') {
+                toast.error("El proceso de Stripe expiró. Inténtalo de nuevo.");
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            // Fase 2: Restricción por Email no verificado
+            if (user.providerData.some(p => p.providerId === 'password') && !user.emailVerified) {
+                router.push('/verify-email');
+                return;
+            } else {
+                setIsEmailVerified(true);
             }
 
             try {
@@ -100,12 +123,12 @@ export default function CreatorDashboard() {
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
-                    const data = docSnap.data() as CreatorData;
+                    const data = docSnap.data() as CreatorProfile;
                     setCreatorData(data);
 
                     // Inicializar los estados con los datos reales
-                    setDisplayName(data.profile.displayName || '');
-                    setBio(data.profile.bio || '');
+                    setDisplayName(data.displayName || '');
+                    setBio(data.bio || '');
                     setPrimaryColor(data.theme?.primaryColor || '#00FFCC');
                     setFontMode(data.theme?.fontMode || 'sans');
                     setButtonStyle(data.theme?.buttonStyle || 'rounded');
@@ -122,7 +145,7 @@ export default function CreatorDashboard() {
             }
         });
 
-        return () => unsubscribe();
+        return () => checkAuth();
     }, [router]);
 
     const handleSaveProfile = async (e: React.FormEvent) => {
@@ -134,8 +157,8 @@ export default function CreatorDashboard() {
             const docRef = doc(db, 'creators', auth.currentUser.uid);
 
             await updateDoc(docRef, {
-                'profile.displayName': displayName,
-                'profile.bio': bio,
+                'displayName': displayName,
+                'bio': bio,
                 'theme.primaryColor': primaryColor,
                 'theme.fontMode': fontMode,
                 'theme.buttonStyle': buttonStyle,
@@ -146,11 +169,12 @@ export default function CreatorDashboard() {
                 'theme.fontFamily': fontFamily,
             });
 
-            // Actualizar estado local para que la UI refleje el nuevo color inmediatamente
-            setCreatorData(prev => prev ? {
+            // Actualizar estado local
+            setCreatorData((prev: any) => prev ? {
                 ...prev,
-                profile: { ...prev.profile, displayName, bio },
-                theme: { primaryColor, fontMode, buttonStyle, mode: themeMode, activeSkin, videoBgUrl, audioBgUrl, fontFamily }
+                displayName,
+                bio,
+                theme: { ...prev.theme, primaryColor, fontMode, buttonStyle, mode: themeMode, activeSkin, videoBgUrl, audioBgUrl, fontFamily }
             } : null);
 
             toast.success("¡Configuración guardada!");
@@ -197,12 +221,12 @@ export default function CreatorDashboard() {
 
             // 3. Guardar URL (no Base64) en Firestore
             const docRef = doc(db, 'creators', auth.currentUser.uid);
-            await updateDoc(docRef, { 'profile.avatarUrl': downloadUrl });
+            await updateDoc(docRef, { 'avatarUrl': downloadUrl });
 
             // 4. Actualizar UI
-            setCreatorData(prev => prev ? {
+            setCreatorData((prev: any) => prev ? {
                 ...prev,
-                profile: { ...prev.profile, avatarUrl: downloadUrl }
+                avatarUrl: downloadUrl
             } : null);
         } catch (err) {
             console.error('[AVATAR UPLOAD ERROR]', err);
@@ -215,37 +239,22 @@ export default function CreatorDashboard() {
 
     const handleMakePremium = async () => {
         if (!auth.currentUser) return;
-        if (!confirm("Esto es una simulación de pago. ¿Deseas hacerte Premium gratis? 😂")) return;
 
         try {
-            const docRef = doc(db, 'creators', auth.currentUser.uid);
-            // Simulate Premium Upgrade
-            await updateDoc(docRef, { isPremium: true });
+            const response = await fetch('/api/stripe/checkout-premium', {
+                method: 'POST',
+            });
 
-            setCreatorData(prev => prev ? { ...prev, isPremium: true } : null);
-            toast.success(`⭐ ¡Felicidades! Ya eres ${APP_NAME} Pro.`);
-        } catch (error) {
-            console.error("Error al hacerse premium:", error);
-            toast.error("Error al procesar el pago.");
-        }
-    };
+            const data = await response.json();
 
-    const handleRequestVerification = async () => {
-        if (!auth.currentUser) return;
-        if (!creatorData?.isPremium) {
-            toast.error("Pronto disponible para cuentas PRO. ¡Hazte premium primero!");
-            return;
-        }
-
-        try {
-            const docRef = doc(db, 'creators', auth.currentUser.uid);
-            await updateDoc(docRef, { isVerified: true });
-
-            setCreatorData(prev => prev ? { ...prev, isVerified: true } : null);
-            toast.success("¡Verificación concedida!");
-        } catch (error) {
-            console.error("Error al verificar:", error);
-            toast.error("Error al procesar la verificación.");
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error(data.details || data.error || "No url returned");
+            }
+        } catch (error: any) {
+            console.error("Error al iniciar checkout:", error);
+            toast.error(error.message || "Error al conectar con la pasarela de pago.");
         }
     };
 
@@ -262,6 +271,39 @@ export default function CreatorDashboard() {
     }
 
     if (!creatorData) return null;
+
+    if (!isEmailVerified) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#0d0d12] text-white p-4 text-center selection:bg-[#00FFCC] selection:text-black">
+                <div className="bg-gray-900/60 p-8 sm:p-12 rounded-3xl border border-gray-800 max-w-md w-full shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-8 duration-500">
+                    <span className="text-6xl mb-6 block drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">✉️</span>
+                    <h2 className="text-2xl font-black mb-3 text-white tracking-tight">Verifica tu correo electrónico</h2>
+                    <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+                        Hemos enviado un enlace de confirmación a <br /><b className="text-white block mt-1 text-base">{auth.currentUser?.email}</b><br />
+                        Por favor, confírmalo para acceder a tu Centro de Mando.
+                    </p>
+
+                    <button
+                        onClick={async () => {
+                            if (auth.currentUser) {
+                                await sendEmailVerification(auth.currentUser);
+                                toast.success("Correo reenviado. Revisa tu bandeja de entrada o spam.");
+                                setVerificationSent(true);
+                            }
+                        }}
+                        disabled={verificationSent}
+                        className="w-full bg-white text-black font-bold py-4 rounded-xl disabled:opacity-50 hover:bg-gray-200 transition-all mb-6 shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        {verificationSent ? '✅ Enlace Reenviado' : 'Reenviar Enlace de Acceso'}
+                    </button>
+
+                    <button onClick={() => { auth.signOut(); router.push('/dashboard/login'); }} className="text-gray-500 text-sm font-bold hover:text-white transition-colors">
+                        ← Volver al inicio de sesión
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     // --- GENERAR PREVIEW ---
     const generatePreviewLayout = () => {
@@ -311,6 +353,12 @@ export default function CreatorDashboard() {
 
     return (
         <div className={`min-h-screen bg-[#0d0d12] text-white p-4 md:p-8 relative overflow-hidden ${showPreviewMobile ? 'h-screen overflow-hidden' : 'overflow-auto'}`}>
+
+            {/* FASE 4 / TAREA 4: Modal de Bienvenida para usuarios que recién crearon su nexus */}
+            {creatorData.hasSeenWelcomeModal === false && (
+                <WelcomeModal onClose={() => setCreatorData(prev => prev ? { ...prev, hasSeenWelcomeModal: true } : null)} />
+            )}
+
             {/* Toggle Flotante Mobile para Live Preview */}
             <div className="md:hidden fixed bottom-6 right-6 z-50">
                 <button
@@ -340,17 +388,20 @@ export default function CreatorDashboard() {
                                     onClick={handleMakePremium}
                                     className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-lg hover:shadow-yellow-500/50 transition-all hover:-translate-y-0.5"
                                 >
-                                    ⭐ Hacerse Premium
+                                    ⭐ Unirse a Premium
                                 </button>
                             )}
                         </p>
                     </div>
-                    <button
-                        onClick={() => auth.signOut()}
-                        className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors"
-                    >
-                        Cerrar Sesión
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <NotificationBell />
+                        <button
+                            onClick={() => auth.signOut()}
+                            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors"
+                        >
+                            Cerrar Sesión
+                        </button>
+                    </div>
                 </header>
 
                 <div className="flex flex-col md:flex-row gap-8">
@@ -358,21 +409,23 @@ export default function CreatorDashboard() {
                     <div className={`w-full md:w-[60%] md:min-w-[400px] space-y-8 ${showPreviewMobile ? 'hidden md:block' : 'block'}`}>
                         {/* TAB NAVIGATION */}
                         <div className="flex gap-2 mb-6 border-b border-gray-800 pb-2 overflow-x-auto scrollbar-hide">
-                            <button onClick={() => setActiveTab('basics')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'basics' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>Básicos</button>
-                            <button onClick={() => setActiveTab('design')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'design' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>Diseño & Tema</button>
-                            <button onClick={() => setActiveTab('modules')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'modules' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>Módulos & Contenido</button>
-                            <button onClick={() => setActiveTab('account')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'account' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>Ajustes de Cuenta</button>
+                            <button onClick={() => setActiveTab('overview')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>🏠 Inicio</button>
+                            <button onClick={() => setActiveTab('appearance')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'appearance' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>🎨 Apariencia</button>
+                            <button onClick={() => setActiveTab('studio')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'studio' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>📝 Creator Studio</button>
+                            <button onClick={() => setActiveTab('interaction')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'interaction' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>💬 Interacción</button>
+                            <button onClick={() => setActiveTab('payments')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'payments' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>🏦 Pagos</button>
+                            <button onClick={() => setActiveTab('settings')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>⚙️ Configuración</button>
                         </div>
 
                         <AnimatePresence mode="wait">
-                            {activeTab === 'basics' && (
-                                <motion.div key="basics" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
+                            {activeTab === 'overview' && (
+                                <motion.div key="overview" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
                                     {/* Perfil Summary */}
                                     <div className="p-6 bg-gray-900 border border-gray-800 rounded-3xl flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-6 shadow-xl">
                                         <div className="relative group cursor-pointer flex-shrink-0 w-28 h-28" onClick={() => document.getElementById('avatar-upload')?.click()}>
                                             <div className="absolute -inset-1 rounded-full blur-sm opacity-50 transition-colors duration-300 group-hover:opacity-80" style={{ backgroundColor: primaryColor }}></div>
                                             <img
-                                                src={creatorData.profile.avatarUrl}
+                                                src={creatorData.avatarUrl || getSmartAvatar(creatorData.displayName || creatorData.username, creatorData.username)}
                                                 alt="Avatar"
                                                 className={`relative z-10 w-full h-full rounded-full border-4 object-cover aspect-square ${isUploadingPic ? 'opacity-50' : ''}`}
                                                 style={{ borderColor: primaryColor }}
@@ -397,7 +450,7 @@ export default function CreatorDashboard() {
                                         </div>
 
                                         <div className="flex-1 min-w-0 w-full flex flex-col items-center md:items-start">
-                                            <h2 className="font-bold text-xl break-words w-full">{displayName || creatorData.profile.displayName}</h2>
+                                            <h2 className="font-bold text-xl break-words w-full">{displayName || creatorData.displayName}</h2>
                                             <p className="text-sm text-gray-500 mb-6 break-words w-full">{APP_DOMAIN}/{creatorData.username}</p>
 
                                             <a
@@ -408,16 +461,30 @@ export default function CreatorDashboard() {
                                             >
                                                 Ver Perfil Público ↗
                                             </a>
-                                            <button
-                                                onClick={handleRequestVerification}
-                                                className={`w-full mt-3 py-3 rounded-xl text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 block text-center ${creatorData?.isVerified ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-default' : 'bg-gray-800 text-white hover:bg-gray-700'}`}
-                                                disabled={creatorData?.isVerified}
-                                            >
-                                                {creatorData?.isVerified ? '✓ Cuenta Verificada' : 'Solicitar Verificación'}
-                                            </button>
                                         </div>
                                     </div>
 
+                                    {/* ANALYTICS VISUALES AQUI */}
+                                    {creatorData.modules && creatorData.modules.length > 0 && (
+                                        <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
+                                            <h3 className="text-xl font-bold text-white mb-6">Analíticas de Clics</h3>
+                                            <div className="h-64 w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={analyticsData}>
+                                                        <XAxis dataKey="title" stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
+                                                        <YAxis stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
+                                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1f2028', border: 'none', borderRadius: '12px' }} />
+                                                        <Bar dataKey="clicks" fill={primaryColor} radius={[6, 6, 0, 0]} isAnimationActive={false} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+
+                            {activeTab === 'appearance' && (
+                                <motion.div key="appearance" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
                                     {/* THEME ENGINE 2.0 PANEL OR BASIC INFO */}
                                     <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
                                         <h3 className="text-xl font-bold mb-6 text-white text-center md:text-left">Información Personal</h3>
@@ -456,239 +523,253 @@ export default function CreatorDashboard() {
                                             </div>
                                         </form>
                                     </div>
-                                </motion.div>
-                            )}
 
-                            {activeTab === 'design' && (
-                                <motion.div key="design" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
-                                    <div className="flex items-center gap-2 mb-6 group relative w-fit">
-                                        <h3 className="text-xl font-bold text-white text-center md:text-left">Identidad de Marca y Tema</h3>
-                                        <svg className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 p-3 text-xs bg-gray-900 border border-gray-700 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                                            ¿Cómo usar el Fondo de Pantalla? Pega una URL o sube una imagen optimizada. ¿Audio Ambiental? Pega un link de mp3.
-                                        </div>
-                                    </div>
-                                    <form onSubmit={handleSaveProfile} className="space-y-6">
-                                        <div className="pt-2">
-                                            <label className="block text-sm font-medium text-gray-400 mb-4 mt-4 text-center md:text-left">
-                                                Color del Tema
-                                            </label>
-                                            <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center">
-                                                {THEME_COLORS.map((color) => (
-                                                    <button
-                                                        key={color.id}
-                                                        type="button"
-                                                        onClick={() => setPrimaryColor(color.hex)}
-                                                        title={color.name}
-                                                        className={`w-12 h-12 rounded-full transition-all duration-300 flex items-center justify-center ${primaryColor === color.hex ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0d0d12]' : 'hover:scale-110'
-                                                            }`}
-                                                        style={{ backgroundColor: color.hex, boxShadow: primaryColor === color.hex ? `0 0 20px ${color.hex}80` : 'none' }}
-                                                    >
-                                                        {primaryColor === color.hex && (
-                                                            <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        )}
-                                                    </button>
-                                                ))}
-
-                                                {/* Selector de Color Personalizado en Tiempo Real */}
-                                                <div
-                                                    className="relative w-12 h-12 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center cursor-pointer shadow-lg hover:scale-110"
-                                                    style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}80` }}
-                                                    title="Color Personalizado Profundo"
-                                                >
-                                                    <input
-                                                        type="color"
-                                                        value={primaryColor}
-                                                        onChange={(e) => {
-                                                            const newColor = e.target.value;
-                                                            setPrimaryColor(newColor);
-
-                                                            // Guardado en tiempo real con debounce simple
-                                                            if ((window as any)._colorTimeout) clearTimeout((window as any)._colorTimeout);
-                                                            (window as any)._colorTimeout = setTimeout(async () => {
-                                                                if (auth.currentUser) {
-                                                                    try {
-                                                                        const docRef = doc(db, 'creators', auth.currentUser.uid);
-                                                                        await updateDoc(docRef, { 'theme.primaryColor': newColor });
-                                                                        setCreatorData((prev: any) => prev ? { ...prev, theme: { ...prev.theme, primaryColor: newColor } } : null);
-                                                                    } catch (err) {
-                                                                        console.error("Error guardando color custom:", err);
-                                                                    }
-                                                                }
-                                                            }, 500);
-                                                        }}
-                                                        className="absolute -top-4 -left-4 w-24 h-24 cursor-pointer opacity-0"
-                                                    />
-                                                    <svg className="w-5 h-5 text-black pointer-events-none mix-blend-difference opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                </div>
+                                    {/* SECCIÓN DISEÑO MOVIDA A APARIENCIA */}
+                                    <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl mt-8">
+                                        <div className="flex items-center gap-2 mb-6 group relative w-fit">
+                                            <h3 className="text-xl font-bold text-white text-center md:text-left">Identidad de Marca y Tema</h3>
+                                            <svg className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 p-3 text-xs bg-gray-900 border border-gray-700 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                ¿Cómo usar el Fondo de Pantalla? Pega una URL o sube una imagen optimizada. ¿Audio Ambiental? Pega un link de mp3.
                                             </div>
                                         </div>
-
-                                        {/* THEME ENGINE 2.0 CONTROLS */}
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-800/50">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-400 mb-2">Tipografía (Google Fonts)</label>
-                                                <select
-                                                    value={fontFamily}
-                                                    onChange={(e) => setFontFamily(e.target.value)}
-                                                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
-                                                >
-                                                    {FONT_WHITELIST.map(font => (
-                                                        <option key={font} value={font}>{font}</option>
+                                        <form onSubmit={handleSaveProfile} className="space-y-6">
+                                            <div className="pt-2">
+                                                <label className="block text-sm font-medium text-gray-400 mb-4 mt-4 text-center md:text-left">
+                                                    Color del Tema
+                                                </label>
+                                                <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center">
+                                                    {THEME_COLORS.map((color) => (
+                                                        <button
+                                                            key={color.id}
+                                                            type="button"
+                                                            onClick={() => setPrimaryColor(color.hex)}
+                                                            title={color.name}
+                                                            className={`w-12 h-12 rounded-full transition-all duration-300 flex items-center justify-center ${primaryColor === color.hex ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0d0d12]' : 'hover:scale-110'
+                                                                }`}
+                                                            style={{ backgroundColor: color.hex, boxShadow: primaryColor === color.hex ? `0 0 20px ${color.hex}80` : 'none' }}
+                                                        >
+                                                            {primaryColor === color.hex && (
+                                                                <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
                                                     ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-400 mb-2">Skin Base (Fallback)</label>
-                                                <select
-                                                    value={activeSkin}
-                                                    onChange={(e) => setActiveSkin(e.target.value)}
-                                                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
-                                                >
-                                                    <option value="default">Default (Cristal)</option>
-                                                    <option value="gotham">Gotham (Oscuro/Neón)</option>
-                                                    <option value="burton">Burton (Dibujado)</option>
-                                                    <option value="minimalist">Minimalist (Limpio)</option>
-                                                    <option value="neumorphism">Neumorphism (3D Suave)</option>
-                                                    <option value="sunset">Sunset (Gradiente Cálido)</option>
-                                                </select>
-                                            </div>
-                                            <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                                {/* IMAGE BG - URL O UPLOAD */}
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-400">🖼️ Fondo de Pantalla</label>
-                                                    {videoBgUrl ? (
-                                                        <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
-                                                            <span className="text-xl">🖼️</span>
-                                                            <span className="text-xs text-green-400 flex-1 truncate font-bold">Fondo activo ✓</span>
-                                                            <button type="button" onClick={() => setVideoBgUrl('')} className="text-red-400 text-xs px-2 py-1 bg-red-500/10 rounded-lg">✕ Quitar</button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <div className="flex flex-col gap-2">
-                                                                <input
-                                                                    type="url"
-                                                                    value={videoBgUrl}
-                                                                    onChange={(e) => setVideoBgUrl(e.target.value)}
-                                                                    placeholder="Ej: https://.../img.jpg"
-                                                                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
-                                                                />
-                                                                <label className="flex items-center justify-center gap-2 bg-gray-800/50 border border-dashed border-gray-600 rounded-xl h-[46px] cursor-pointer hover:border-purple-500/60 hover:bg-gray-800 transition-all text-gray-400">
-                                                                    <span className="text-xl">📤</span>
-                                                                    <span className="text-xs font-bold">Subir Imagen (Auto-optimizado)</span>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        className="hidden"
-                                                                        onChange={async (e) => {
-                                                                            const file = e.target.files?.[0];
-                                                                            if (!file || !auth.currentUser) return;
-                                                                            setIsSaving(true);
-                                                                            try {
-                                                                                // Comprimir con canvas 
-                                                                                const compressedBlob = await new Promise<Blob>((resolve, reject) => {
-                                                                                    const img = new window.Image();
-                                                                                    const reader = new FileReader();
-                                                                                    reader.onload = (ev) => {
-                                                                                        img.src = ev.target?.result as string;
-                                                                                        img.onload = () => {
-                                                                                            const MAX = 1920;
-                                                                                            const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
-                                                                                            const canvas = document.createElement('canvas');
-                                                                                            canvas.width = Math.round(img.width * ratio);
-                                                                                            canvas.height = Math.round(img.height * ratio);
-                                                                                            const ctx = canvas.getContext('2d')!;
-                                                                                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                                                            canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas fail')), 'image/jpeg', 0.80);
-                                                                                        };
-                                                                                        img.onerror = reject;
-                                                                                    };
-                                                                                    reader.onerror = reject;
-                                                                                    reader.readAsDataURL(file);
-                                                                                });
-                                                                                const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-image-${Date.now()}.jpg`);
-                                                                                await uploadBytes(storageRef, compressedBlob, { contentType: 'image/jpeg' });
-                                                                                const url = await getDownloadURL(storageRef);
-                                                                                setVideoBgUrl(url);
-                                                                            } catch (err: any) {
-                                                                                console.error('[BG UPLOAD ERROR]', err);
-                                                                                toast.error(`Error al subir imagen: ${err?.code || err?.message || 'desconocido'}`);
-                                                                            } finally {
-                                                                                setIsSaving(false);
-                                                                                e.target.value = '';
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </label>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                    <p className="text-[11px] text-gray-500">Puedes subir tu propio fondo o pegar una URL directa.</p>
-                                                </div>
 
-                                                {/* AUDIO BG UPLOADER */}
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-400">Audio Ambiental (MP3, max 5MB)</label>
-                                                    {audioBgUrl ? (
-                                                        <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
-                                                            <span className="text-2xl">🎵</span>
-                                                            <span className="text-xs text-gray-300 flex-1 truncate">Audio activo ✓</span>
-                                                            <button type="button" onClick={() => setAudioBgUrl('')} className="text-red-400 text-xs px-2 py-1 bg-red-500/10 rounded-lg">✕ Quitar</button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <label className="flex flex-col items-center gap-2 p-4 bg-gray-800/50 border border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-purple-500/60 hover:bg-gray-800 transition-all text-center">
-                                                                <span className="text-2xl">🎵</span>
-                                                                <span className="text-xs text-gray-400">Subir audio MP3 · Máx. 5MB</span>
-                                                                <span className="text-[11px] text-gray-500">Sonido ambiental que se reproduce en tu perfil</span>
-                                                                <input type="file" accept="audio/mpeg,audio/mp3,audio/*" className="hidden" onChange={async (e) => {
-                                                                    const file = e.target.files?.[0];
-                                                                    if (!file || !auth.currentUser) return;
-                                                                    if (file.size > 5 * 1024 * 1024) { toast.error('El audio no puede superar 5MB'); return; }
-                                                                    setIsSaving(true);
-                                                                    try {
-                                                                        const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-audio.mp3`);
-                                                                        await uploadBytes(storageRef, file);
-                                                                        const url = await getDownloadURL(storageRef);
-                                                                        setAudioBgUrl(url);
-                                                                    } catch (err: any) {
-                                                                        console.error('[AUDIO UPLOAD ERROR]', err);
-                                                                        toast.error(`Error al subir audio: ${err?.code || err?.message || 'desconocido'}`);
+                                                    {/* Selector de Color Personalizado en Tiempo Real */}
+                                                    <div
+                                                        className="relative w-12 h-12 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center cursor-pointer shadow-lg hover:scale-110"
+                                                        style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}80` }}
+                                                        title="Color Personalizado Profundo"
+                                                    >
+                                                        <input
+                                                            type="color"
+                                                            value={primaryColor}
+                                                            onChange={(e) => {
+                                                                const newColor = e.target.value;
+                                                                setPrimaryColor(newColor);
+
+                                                                // Guardado en tiempo real con debounce simple
+                                                                if ((window as any)._colorTimeout) clearTimeout((window as any)._colorTimeout);
+                                                                (window as any)._colorTimeout = setTimeout(async () => {
+                                                                    if (auth.currentUser) {
+                                                                        try {
+                                                                            const docRef = doc(db, 'creators', auth.currentUser.uid);
+                                                                            await updateDoc(docRef, { 'theme.primaryColor': newColor });
+                                                                            setCreatorData((prev: any) => prev ? { ...prev, theme: { ...prev.theme, primaryColor: newColor } } : null);
+                                                                        } catch (err) {
+                                                                            console.error("Error guardando color custom:", err);
+                                                                        }
                                                                     }
-                                                                    finally { setIsSaving(false); e.target.value = ''; }
-                                                                }} />
-                                                            </label>
-                                                            <p className="text-[11px] text-gray-500 text-center">O pega una URL directa de .mp3</p>
-                                                            <input type="url" value={audioBgUrl} onChange={(e) => setAudioBgUrl(e.target.value)} placeholder="https://.../audio.mp3" className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors" />
-                                                        </>
-                                                    )}
+                                                                }, 500);
+                                                            }}
+                                                            className="absolute -top-4 -left-4 w-24 h-24 cursor-pointer opacity-0"
+                                                        />
+                                                        <svg className="w-5 h-5 text-black pointer-events-none mix-blend-difference opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                        </svg>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="flex justify-end pt-6">
-                                            <button
-                                                type="submit"
-                                                disabled={isSaving}
-                                                className={`w-full md:w-auto px-10 py-4 font-bold rounded-2xl transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 ${getContrastYIQ(primaryColor)}`}
-                                                style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}40` }}
-                                            >
-                                                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-                                            </button>
-                                        </div>
-                                    </form>
+                                            {/* THEME ENGINE 2.0 CONTROLS */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-800/50">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-400 mb-2">Tipografía (Google Fonts)</label>
+                                                    <select
+                                                        value={fontFamily}
+                                                        onChange={(e) => setFontFamily(e.target.value)}
+                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
+                                                    >
+                                                        {FONT_WHITELIST.map(font => (
+                                                            <option key={font} value={font}>{font}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-400 mb-2">Skin Base (Fallback)</label>
+                                                    <select
+                                                        value={activeSkin}
+                                                        onChange={(e) => setActiveSkin(e.target.value)}
+                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
+                                                    >
+                                                        <option value="default">Default (Cristal)</option>
+                                                        <option value="gotham">Gotham (Oscuro/Neón)</option>
+                                                        <option value="burton">Burton (Dibujado)</option>
+                                                        <option value="minimalist">Minimalist (Limpio)</option>
+                                                        <option value="neumorphism">Neumorphism (3D Suave)</option>
+                                                        <option value="sunset">Sunset (Gradiente Cálido)</option>
+                                                    </select>
+                                                </div>
+                                                <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                                    {/* IMAGE BG - URL O UPLOAD */}
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-400">🖼️ Fondo de Pantalla</label>
+                                                        {videoBgUrl ? (
+                                                            <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
+                                                                <span className="text-xl">🖼️</span>
+                                                                <span className="text-xs text-green-400 flex-1 truncate font-bold">Fondo activo ✓</span>
+                                                                <button type="button" onClick={() => setVideoBgUrl('')} className="text-red-400 text-xs px-2 py-1 bg-red-500/10 rounded-lg">✕ Quitar</button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex flex-col gap-2">
+                                                                    <input
+                                                                        type="url"
+                                                                        value={videoBgUrl}
+                                                                        onChange={(e) => setVideoBgUrl(e.target.value)}
+                                                                        placeholder="Ej: https://.../img.jpg"
+                                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                                                                    />
+                                                                    <label className="flex items-center justify-center gap-2 bg-gray-800/50 border border-dashed border-gray-600 rounded-xl h-[46px] cursor-pointer hover:border-purple-500/60 hover:bg-gray-800 transition-all text-gray-400">
+                                                                        <span className="text-xl">📤</span>
+                                                                        <span className="text-xs font-bold">Subir Imagen (Auto-optimizado)</span>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*"
+                                                                            className="hidden"
+                                                                            onChange={async (e) => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (!file || !auth.currentUser) return;
+                                                                                setIsSaving(true);
+                                                                                try {
+                                                                                    // Comprimir con canvas 
+                                                                                    const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+                                                                                        const img = new window.Image();
+                                                                                        const reader = new FileReader();
+                                                                                        reader.onload = (ev) => {
+                                                                                            img.src = ev.target?.result as string;
+                                                                                            img.onload = () => {
+                                                                                                const MAX = 1920;
+                                                                                                const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+                                                                                                const canvas = document.createElement('canvas');
+                                                                                                canvas.width = Math.round(img.width * ratio);
+                                                                                                canvas.height = Math.round(img.height * ratio);
+                                                                                                const ctx = canvas.getContext('2d')!;
+                                                                                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                                                                canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas fail')), 'image/jpeg', 0.80);
+                                                                                            };
+                                                                                            img.onerror = reject;
+                                                                                        };
+                                                                                        reader.onerror = reject;
+                                                                                        reader.readAsDataURL(file);
+                                                                                    });
+                                                                                    const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-image-${Date.now()}.jpg`);
+                                                                                    await uploadBytes(storageRef, compressedBlob, { contentType: 'image/jpeg' });
+                                                                                    const url = await getDownloadURL(storageRef);
+                                                                                    setVideoBgUrl(url);
+                                                                                } catch (err: any) {
+                                                                                    console.error('[BG UPLOAD ERROR]', err);
+                                                                                    toast.error(`Error al subir imagen: ${err?.code || err?.message || 'desconocido'}`);
+                                                                                } finally {
+                                                                                    setIsSaving(false);
+                                                                                    e.target.value = '';
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                        <p className="text-[11px] text-gray-500">Puedes subir tu propio fondo o pegar una URL directa.</p>
+                                                    </div>
+
+                                                    {/* AUDIO BG UPLOADER */}
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-400">Audio Ambiental (MP3, max 5MB)</label>
+                                                        {audioBgUrl ? (
+                                                            <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
+                                                                <span className="text-2xl">🎵</span>
+                                                                <span className="text-xs text-gray-300 flex-1 truncate">Audio activo ✓</span>
+                                                                <button type="button" onClick={() => setAudioBgUrl('')} className="text-red-400 text-xs px-2 py-1 bg-red-500/10 rounded-lg">✕ Quitar</button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <label className="flex flex-col items-center gap-2 p-4 bg-gray-800/50 border border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-purple-500/60 hover:bg-gray-800 transition-all text-center">
+                                                                    <span className="text-2xl">🎵</span>
+                                                                    <span className="text-xs text-gray-400">Subir audio MP3 · Máx. 5MB</span>
+                                                                    <span className="text-[11px] text-gray-500">Sonido ambiental que se reproduce en tu perfil</span>
+                                                                    <input type="file" accept="audio/mpeg,audio/mp3,audio/*" className="hidden" onChange={async (e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (!file || !auth.currentUser) return;
+                                                                        if (file.size > 5 * 1024 * 1024) { toast.error('El audio no puede superar 5MB'); return; }
+                                                                        setIsSaving(true);
+                                                                        try {
+                                                                            const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-audio.mp3`);
+                                                                            await uploadBytes(storageRef, file);
+                                                                            const url = await getDownloadURL(storageRef);
+                                                                            setAudioBgUrl(url);
+                                                                        } catch (err: any) {
+                                                                            console.error('[AUDIO UPLOAD ERROR]', err);
+                                                                            toast.error(`Error al subir audio: ${err?.code || err?.message || 'desconocido'}`);
+                                                                        }
+                                                                        finally { setIsSaving(false); e.target.value = ''; }
+                                                                    }} />
+                                                                </label>
+                                                                <p className="text-[11px] text-gray-500 text-center">O pega una URL directa de .mp3</p>
+                                                                <input type="url" value={audioBgUrl} onChange={(e) => setAudioBgUrl(e.target.value)} placeholder="https://.../audio.mp3" className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors" />
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end pt-6">
+                                                <button
+                                                    type="submit"
+                                                    disabled={isSaving}
+                                                    className={`w-full md:w-auto px-10 py-4 font-bold rounded-2xl transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 ${getContrastYIQ(primaryColor)}`}
+                                                    style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}40` }}
+                                                >
+                                                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </motion.div>
                             )}
 
-                            {/* Editor de Enlaces y Módulos */}
-                            {activeTab === 'modules' && creatorData && (
-                                <motion.div key="modules" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
+                            {/* PESTAÑA DE MENSAJES Q&A */}
+                            {activeTab === 'interaction' && (
+                                <motion.div key="interaction" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
+                                    <QAManager />
+                                </motion.div>
+                            )}
+
+                            {/* PESTAÑA FEED Y MÓDULOS */}
+                            {activeTab === 'studio' && creatorData && (
+                                <motion.div key="studio" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
+                                    {/* Feed Manager (Requiere al menos un módulo Feed creado) */}
+                                    {creatorData && creatorData.modules?.some(m => m.type === 'feed') && (
+                                        <FeedManager
+                                            feedModules={creatorData.modules.filter(m => m.type === 'feed')}
+                                            creatorId={creatorData.uid}
+                                        />
+                                    )}
+
                                     <ModuleEditor
                                         modules={creatorData.modules || []}
                                         isPremium={creatorData.isPremium || false}
@@ -698,41 +779,29 @@ export default function CreatorDashboard() {
                                                 const docRef = doc(db, 'creators', user.uid);
                                                 const docSnap = await getDoc(docRef);
                                                 if (docSnap.exists()) {
-                                                    setCreatorData(docSnap.data() as CreatorData);
+                                                    setCreatorData(docSnap.data() as CreatorProfile);
                                                 }
                                             }
                                         }}
                                     />
+                                </motion.div>
+                            )}
 
-                                    {/* Feed Manager (Solo visible si hay un módulo Feed) */}
-                                    {creatorData && creatorData.modules?.some(m => m.type === 'feed') && (
-                                        <FeedManager />
-                                    )}
-
-                                    {/* ANALYTICS VISUALES AQUI */}
-                                    {creatorData.modules && creatorData.modules.length > 0 && (
-                                        <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
-                                            <h3 className="text-xl font-bold text-white mb-6">Analíticas de Clics</h3>
-                                            <div className="h-64 w-full">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={analyticsData}>
-                                                        <XAxis dataKey="title" stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
-                                                        <YAxis stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
-                                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1f2028', border: 'none', borderRadius: '12px' }} />
-                                                        <Bar dataKey="clicks" fill={primaryColor} radius={[6, 6, 0, 0]} isAnimationActive={false} />
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
-                                    )}
+                            {/* Pestaña de Pagos y Monetización */}
+                            {activeTab === 'payments' && creatorData && (
+                                <motion.div key="payments" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
+                                    <StripeConnectZone creatorData={creatorData} onUpdate={updateCreatorData} />
                                 </motion.div>
                             )}
 
                             {/* Pestaña de Ajustes de Cuenta */}
-                            {activeTab === 'account' && (
-                                <motion.div key="account" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
-                                    <AccountSettings />
-                                    <DeleteAccountZone />
+                            {activeTab === 'settings' && (
+                                <motion.div key="settings" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+                                    <div className="max-w-3xl mx-auto space-y-6">
+                                        <AccountSettings />
+                                        <VerificationBadgeZone creatorData={creatorData} />
+                                        <DeleteAccountZone />
+                                    </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -765,7 +834,7 @@ export default function CreatorDashboard() {
 
                                 <div className="relative z-10 flex flex-col items-center p-6 text-center">
                                     <div className="relative w-24 h-24 flex-shrink-0 mt-4 overflow-hidden rounded-full border-4" style={{ borderColor: primaryColor }}>
-                                        <Image src={creatorData.profile.avatarUrl} alt="Avatar" fill sizes="96px" className="object-cover aspect-square" />
+                                        <Image src={creatorData.avatarUrl || '/default-avatar.png'} alt="Avatar" fill sizes="96px" className="object-cover aspect-square" />
                                     </div>
                                     <h2 className={`text-2xl font-bold mt-4 leading-tight break-words text-center flex items-center justify-center ${activeSkinObj.textClass}`}>
                                         {displayName}
