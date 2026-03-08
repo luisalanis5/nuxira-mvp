@@ -16,6 +16,7 @@ import PublicProfileCTA from '@/components/public/PublicProfileCTA';
 import { getSmartAvatar } from '@/lib/firebase/profileUtils';
 
 export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
@@ -259,7 +260,7 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
             <p className="text-lg break-words text-left mt-1 text-current" style={{ fontFamily: 'inherit', color: isHeaderWhite ? '#FFFFFF' : 'inherit' }}>
               {profile.bio || `Creador en ${APP_NAME}`}
             </p>
-            <span className="text-sm mt-1 block text-left opacity-60">
+            <span className="text-sm mt-1 block text-left opacity-60 break-all">
               {process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '')}/{username}
             </span>
           </div>

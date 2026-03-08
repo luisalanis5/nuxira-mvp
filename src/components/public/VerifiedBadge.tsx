@@ -19,8 +19,8 @@ const VerifiedBadge = () => {
             </svg>
 
             {/* Tooltip on hover */}
-            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 text-[10px] font-bold text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg border border-gray-700">
-                Creador Verificado
+            <span className="absolute bottom-full right-0 mb-2 w-36 px-2 py-1 text-[10px] font-bold text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg border border-gray-700 text-center whitespace-normal leading-tight">
+                Creador Verificado ✓
             </span>
         </span>
     );
