@@ -17,7 +17,7 @@ type ModuleItem = {
   props?: any;
 };
 
-export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules: ModuleItem[], isPremium: boolean, onUpdate: () => void }) {
+export default function ModuleEditor({ modules, isPremium, stripeSetupComplete, onUpdate }: { modules: ModuleItem[], isPremium: boolean, stripeSetupComplete?: boolean, onUpdate: () => void }) {
   const [addingType, setAddingType] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -327,10 +327,31 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
               <button onClick={() => handleAddNew('feed')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${addingType === 'feed' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 scale-105' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}>+ Novedades</button>
 
               <button
-                onClick={() => isPremium ? handleAddNew('locked') : setShowProModal(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isPremium ? 'text-gray-300 hover:text-white hover:bg-gray-700 border border-green-500/30' : addingType === 'locked' ? 'bg-green-500 text-white shadow-lg shadow-green-500/20 scale-105' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                onClick={() => {
+                  if (!isPremium) { setShowProModal(true); return; }
+                  if (!stripeSetupComplete) {
+                    toast.error('Ve a la sección de Pagos y termina de conectar tu cuenta bancaria para habilitar la monetización.', { duration: 5000 });
+                    return;
+                  }
+                  handleAddNew('locked');
+                }}
+                title={isPremium && !stripeSetupComplete ? 'Conecta tu cuenta bancaria primero' : undefined}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isPremium
+                    ? 'text-gray-300 hover:text-white hover:bg-gray-700 border border-green-500/30'
+                    : !stripeSetupComplete
+                      ? 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 border border-orange-500/30 cursor-not-allowed'
+                      : addingType === 'locked'
+                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/20 scale-105'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
               >
-                + Paywall {!isPremium && <span className="text-[10px] bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">Pro</span>}
+                {!isPremium ? (
+                  <>+ Paywall <span className="text-[10px] bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">Pro</span></>
+                ) : !stripeSetupComplete ? (
+                  <>🔒 Paywall <span className="text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30 px-1.5 py-0.5 rounded uppercase tracking-wider">sin banco</span></>
+                ) : (
+                  <>+ Paywall</>
+                )}
               </button>
 
               <button

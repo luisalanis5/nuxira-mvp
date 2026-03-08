@@ -25,6 +25,8 @@ export interface CreatorProfile {
         audioBgUrl?: string;
         backgroundImage?: string;
     };
+    stripeAccountId?: string;
+    stripeSetupComplete?: boolean;
     createdAt: any;
     lastLogin: any;
 }

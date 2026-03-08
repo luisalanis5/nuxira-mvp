@@ -769,6 +769,7 @@ export default function CreatorDashboard() {
                                     <ModuleEditor
                                         modules={creatorData.modules || []}
                                         isPremium={creatorData.isPremium || false}
+                                        stripeSetupComplete={creatorData.stripeSetupComplete === true}
                                         onUpdate={async () => {
                                             const user = auth.currentUser;
                                             if (user) {
