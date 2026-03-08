@@ -19,7 +19,7 @@ export async function POST(request: Request) {
                 from: 'Nuxira <onboarding@resend.dev>',
                 to: email,
                 subject: '¡Bienvenido a tu nuevo multiverso digital! 🚀',
-                react: WelcomeEmail({ name: name || 'Creador' })
+                react: WelcomeEmail({ name: name || 'Creador' }) as any
             });
         }
 
