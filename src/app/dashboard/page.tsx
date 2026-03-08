@@ -70,7 +70,7 @@ export default function CreatorDashboard() {
     const [audioBgUrl, setAudioBgUrl] = useState('');
     const [fontFamily, setFontFamily] = useState('Inter');
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'appearance' | 'studio' | 'interaction' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'appearance' | 'studio' | 'interaction' | 'payments' | 'settings'>('overview');
 
     // UI State para Mobile Preview
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
