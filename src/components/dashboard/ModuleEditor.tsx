@@ -643,19 +643,19 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
                           </div>
                         </>
                       )}
-
-                      {addingType === 'feed' && (
-                        <div className="col-span-1 md:col-span-2 space-y-4">
-                          <input
-                            type="text" placeholder="Título de la sección (ej: Últimas Novedades)" required value={feedTitle} onChange={e => setFeedTitle(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white transition-all"
-                          />
-                          <p className="text-gray-400 text-xs italic">
-                            Nota: Al guardar este módulo habilitarás el tablón de novedades en tu perfil público. Podrás publicar textos e imágenes en él desde la nueva sección del "Feed Manager" del centro de mando.
-                          </p>
-                        </div>
-                      )}
                     </>
+                  )}
+
+                  {addingType === 'feed' && (
+                    <div className="col-span-1 md:col-span-2 space-y-4">
+                      <input
+                        type="text" placeholder="Título de la sección (ej: Últimas Novedades)" required value={feedTitle} onChange={e => setFeedTitle(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white transition-all"
+                      />
+                      <p className="text-gray-400 text-xs italic">
+                        Nota: Al guardar este módulo habilitarás el tablón de novedades en tu perfil público. Podrás publicar textos e imágenes en él desde la nueva sección del "Feed Manager" del centro de mando.
+                      </p>
+                    </div>
                   )}
                 </div>
               </form>
@@ -762,66 +762,68 @@ export default function ModuleEditor({ modules, isPremium, onUpdate }: { modules
       })()}
 
       {/* MODAL ESPECTACULAR NUXIRA PRO */}
-      {showProModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop con Blur extremo */}
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowProModal(false)} />
+      {
+        showProModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop con Blur extremo */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowProModal(false)} />
 
-          <div className="relative w-full max-w-md bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(255,215,0,0.15)] animate-[slideIn_0.3s_ease-out]">
-            {/* Botón X para cerrar */}
-            <button
-              onClick={() => setShowProModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white z-20 bg-gray-800/50 hover:bg-gray-700 p-2 rounded-full transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
+            <div className="relative w-full max-w-md bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(255,215,0,0.15)] animate-[slideIn_0.3s_ease-out]">
+              {/* Botón X para cerrar */}
+              <button
+                onClick={() => setShowProModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white z-20 bg-gray-800/50 hover:bg-gray-700 p-2 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
 
-            {/* Glow decorativo top */}
-            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-600" />
-            <div className="absolute -top-32 -right-32 w-64 h-64 bg-yellow-500/20 rounded-full blur-[80px]" />
+              {/* Glow decorativo top */}
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-600" />
+              <div className="absolute -top-32 -right-32 w-64 h-64 bg-yellow-500/20 rounded-full blur-[80px]" />
 
-            <div className="p-8 text-center relative z-10">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(255,215,0,0.4)] rotate-3">
-                <svg className="w-10 h-10 text-black -rotate-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-
-              <h3 className="text-3xl font-black text-white mb-2 tracking-tight">{APP_NAME} <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">PRO</span></h3>
-              <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-                Toma el control absoluto de tu monetización. Añade tus propios Banners de Afiliados, remueve los anuncios de la plataforma y obtén métricas avanzadas.
-              </p>
-
-              <div className="space-y-3 mb-8 text-left">
-                <div className="flex items-center gap-3 text-sm text-gray-300">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">✓</span>
-                  100% Ingresos Propios (Anuncios Nativos)
+              <div className="p-8 text-center relative z-10">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(255,215,0,0.4)] rotate-3">
+                  <svg className="w-10 h-10 text-black -rotate-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-gray-300">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">✓</span>
-                  Elimina Anuncios Aleatorios de {APP_NAME}
-                </div>
-              </div>
 
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleUpgrade}
-                  disabled={saving}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-600 text-black font-black uppercase tracking-widest text-sm shadow-xl hover:shadow-yellow-500/20 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {saving ? 'Procesando...' : 'Hacerse Pro'}
-                </button>
-                <button
-                  onClick={() => setShowProModal(false)}
-                  className="w-full py-3 rounded-xl bg-transparent text-gray-400 font-bold uppercase tracking-widest text-xs hover:text-white transition-all"
-                >
-                  Cancelar
-                </button>
+                <h3 className="text-3xl font-black text-white mb-2 tracking-tight">{APP_NAME} <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600">PRO</span></h3>
+                <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+                  Toma el control absoluto de tu monetización. Añade tus propios Banners de Afiliados, remueve los anuncios de la plataforma y obtén métricas avanzadas.
+                </p>
+
+                <div className="space-y-3 mb-8 text-left">
+                  <div className="flex items-center gap-3 text-sm text-gray-300">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">✓</span>
+                    100% Ingresos Propios (Anuncios Nativos)
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-gray-300">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500">✓</span>
+                    Elimina Anuncios Aleatorios de {APP_NAME}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={saving}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-600 text-black font-black uppercase tracking-widest text-sm shadow-xl hover:shadow-yellow-500/20 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {saving ? 'Procesando...' : 'Hacerse Pro'}
+                  </button>
+                  <button
+                    onClick={() => setShowProModal(false)}
+                    className="w-full py-3 rounded-xl bg-transparent text-gray-400 font-bold uppercase tracking-widest text-xs hover:text-white transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
