@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/lib/firebase/client';
-import { doc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { isKnownEmbedUrl } from '@/components/public/MediaEmbed';
 import toast from 'react-hot-toast';
 import { APP_NAME } from '@/config/brand';
@@ -224,6 +224,11 @@ export default function ModuleEditor({ modules, isPremium, stripeSetupComplete, 
         const updatedModules = localModules.map(m => m.id === editingId ? newModuleData : m);
         setLocalModules(updatedModules);
         await updateDoc(docRef, { modules: updatedModules });
+
+        // SYNC: Si es una encuesta, actualizar también el documento individual para tiempo real
+        if (addingType === 'poll') {
+          await setDoc(doc(db, 'creators', auth.currentUser.uid, 'modules', editingId), newModuleData, { merge: true });
+        }
       } else {
         // CREAR NUEVO - LIMPIEZA DE DATOS: Asegurar que se guarde con un ID real en la BD
         const realId = `mod_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
@@ -231,6 +236,11 @@ export default function ModuleEditor({ modules, isPremium, stripeSetupComplete, 
 
         setLocalModules([...localModules, newModuleData]);
         await updateDoc(docRef, { modules: arrayUnion(newModuleData) });
+
+        // SYNC: Si es una encuesta, crear el documento individual
+        if (addingType === 'poll') {
+          await setDoc(doc(db, 'creators', auth.currentUser.uid, 'modules', realId), newModuleData);
+        }
       }
 
       resetForms();
@@ -337,12 +347,12 @@ export default function ModuleEditor({ modules, isPremium, stripeSetupComplete, 
                 }}
                 title={isPremium && !stripeSetupComplete ? 'Conecta tu cuenta bancaria primero' : undefined}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!isPremium
-                    ? 'text-gray-300 hover:text-white hover:bg-gray-700 border border-green-500/30'
-                    : !stripeSetupComplete
-                      ? 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 border border-orange-500/30 cursor-not-allowed'
-                      : addingType === 'locked'
-                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/20 scale-105'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  ? 'text-gray-300 hover:text-white hover:bg-gray-700 border border-green-500/30'
+                  : !stripeSetupComplete
+                    ? 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 border border-orange-500/30 cursor-not-allowed'
+                    : addingType === 'locked'
+                      ? 'bg-green-500 text-white shadow-lg shadow-green-500/20 scale-105'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
                   }`}
               >
                 {!isPremium ? (

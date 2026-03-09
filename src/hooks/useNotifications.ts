@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase/client';
-import { collection, query, onSnapshot, orderBy, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, doc, writeBatch, Timestamp, updateDoc } from 'firebase/firestore';
 
 export type Notification = {
     id: string;
-    type: 'like' | 'question' | 'vote' | 'purchase' | 'system';
+    type: 'like' | 'question' | 'vote' | 'purchase' | 'system' | 'verification';
     message: string;
-    read: boolean;
-    createdAt: string;
+    isRead: boolean;
+    createdAt: Timestamp | null;
+    actionUrl?: string;
 };
 
 export const useNotifications = () => {
@@ -28,7 +29,7 @@ export const useNotifications = () => {
             })) as Notification[];
 
             setNotifications(notifs);
-            setUnreadCount(notifs.filter(n => !n.read).length);
+            setUnreadCount(notifs.filter(n => !n.isRead).length);
         });
 
         return () => unsubscribe();
@@ -39,20 +40,30 @@ export const useNotifications = () => {
 
         try {
             const batch = writeBatch(db);
-            const unreadNotifs = notifications.filter(n => !n.read);
+            const unreadNotifs = notifications.filter(n => !n.isRead);
 
             if (unreadNotifs.length === 0) return;
 
             unreadNotifs.forEach(n => {
                 const ref = doc(db, 'creators', auth.currentUser!.uid, 'notifications', n.id);
-                batch.update(ref, { read: true });
+                batch.update(ref, { isRead: true });
             });
 
             await batch.commit();
         } catch (error) {
-            console.error('[NOTIFICATIONS] Error marking as read:', error);
+            console.error('[NOTIFICATIONS] Error marking all as read:', error);
         }
     };
 
-    return { notifications, unreadCount, markAllAsRead };
+    const markAsRead = async (notifId: string) => {
+        if (!auth.currentUser) return;
+        try {
+            const ref = doc(db, 'creators', auth.currentUser.uid, 'notifications', notifId);
+            await updateDoc(ref, { isRead: true });
+        } catch (error) {
+            console.error('[NOTIFICATIONS] Error marking single as read:', error);
+        }
+    };
+
+    return { notifications, unreadCount, markAllAsRead, markAsRead };
 };

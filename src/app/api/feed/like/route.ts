@@ -16,6 +16,16 @@ export async function POST(req: Request) {
             await postRef.update({ likedBy: FieldValue.arrayRemove(localUserId) });
         } else {
             await postRef.update({ likedBy: FieldValue.arrayUnion(localUserId) });
+
+            // Trigger Notification for the creator
+            const notifsRef = adminDb.collection('creators').doc(creatorId).collection('notifications');
+            await notifsRef.add({
+                type: 'like',
+                message: 'A alguien le gustó tu publicación. ❤️',
+                isRead: false,
+                createdAt: FieldValue.serverTimestamp(),
+                actionUrl: '/dashboard?tab=overview'
+            });
         }
 
         return NextResponse.json({ success: true });

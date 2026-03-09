@@ -90,22 +90,21 @@ export default function VerificationBadgeZone({ creatorData }: VerificationBadge
         setIsSubmitting(true);
         try {
             // 1. Upload proof image to Firebase Storage
-            const timestamp = Date.now();
-            const storageRef = ref(storage, `verification_proofs/${creatorData.uid}_${timestamp}`);
+            const storagePath = `verification_requests/${creatorData.uid}/${proofFile.name}`;
+            const storageRef = ref(storage, storagePath);
             await uploadBytes(storageRef, proofFile, { contentType: proofFile.type });
-            const proofImageUrl = await getDownloadURL(storageRef);
+            const imageUrl = await getDownloadURL(storageRef);
 
             // 2. Write/update document in verification_requests collection
             const requestRef = doc(db, 'verification_requests', creatorData.uid);
             await setDoc(requestRef, {
                 uid: creatorData.uid,
                 username: creatorData.username,
-                email: creatorData.email || 'Sin email',
-                socialUrl,
                 category,
-                proofImageUrl,
+                socialLink: socialUrl,
+                imageUrl,
                 status: 'pending',
-                submittedAt: serverTimestamp(),
+                createdAt: serverTimestamp(),
             });
 
             setStatus('pending');

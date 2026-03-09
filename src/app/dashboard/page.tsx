@@ -28,6 +28,7 @@ import { getContrastYIQ, getSafeTextColor } from '@/lib/utils/themeUtils';
 import NotificationBell from '@/components/dashboard/NotificationBell';
 import WelcomeModal from '@/components/dashboard/WelcomeModal';
 import QAManager from '@/components/dashboard/QAManager';
+import HelpButton from '@/components/dashboard/HelpButton';
 
 import { CreatorProfile } from '@/lib/firebase/profileUtils';
 
@@ -71,6 +72,8 @@ export default function CreatorDashboard() {
     const [fontFamily, setFontFamily] = useState('Inter');
 
     const [activeTab, setActiveTab] = useState<'overview' | 'appearance' | 'studio' | 'interaction' | 'payments' | 'settings'>('overview');
+    const [statsTimeframe, setStatsTimeframe] = useState<'all' | '7d' | '24h'>('7d');
+    const [aggregatedStats, setAggregatedStats] = useState<any[]>([]);
 
     // UI State para Mobile Preview
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
@@ -258,8 +261,57 @@ export default function CreatorDashboard() {
     };
 
     const analyticsData = useMemo(() => {
-        return creatorData?.modules ? creatorData.modules.filter((m: any) => m.clicks !== undefined) : [];
-    }, [creatorData?.modules]);
+        if (statsTimeframe === 'all') {
+            return creatorData?.modules ? creatorData.modules.filter((m: any) => m.clicks !== undefined) : [];
+        }
+        return aggregatedStats;
+    }, [creatorData?.modules, aggregatedStats, statsTimeframe]);
+
+    // Fetch and aggregate stats
+    useEffect(() => {
+        const fetchStats = async () => {
+            if (!auth.currentUser || statsTimeframe === 'all') return;
+
+            try {
+                const { collection, query, where, getDocs, Timestamp } = await import('firebase/firestore');
+                const analyticsRef = collection(db, 'creators', auth.currentUser.uid, 'analytics_events');
+
+                let startDate = new Date();
+                if (statsTimeframe === '7d') startDate.setDate(startDate.getDate() - 7);
+                if (statsTimeframe === '24h') startDate.setHours(startDate.getHours() - 24);
+
+                const q = query(analyticsRef, where('timestamp', '>=', Timestamp.fromDate(startDate)));
+                const querySnapshot = await getDocs(q);
+
+                const counts: Record<string, number> = {};
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const moduleId = data.moduleId;
+                    counts[moduleId] = (counts[moduleId] || 0) + 1;
+                });
+
+                const formattedStats = (creatorData?.modules || [])
+                    .filter((m: any) => counts[m.id])
+                    .map((m: any) => ({
+                        title: m.title || m.type,
+                        clicks: counts[m.id]
+                    }));
+
+                setAggregatedStats(formattedStats);
+            } catch (error) {
+                console.error("Error fetching stats:", error);
+            }
+        };
+
+        fetchStats();
+    }, [auth.currentUser, statsTimeframe, creatorData?.modules]);
+
+    const handleCopyLink = () => {
+        if (!creatorData?.username) return;
+        const profileUrl = `${window.location.origin}/${creatorData.username}`;
+        navigator.clipboard.writeText(profileUrl);
+        toast.success("¡Enlace copiado!");
+    };
 
     if (loading) {
         return (
@@ -351,7 +403,7 @@ export default function CreatorDashboard() {
 
 
     return (
-        <div className={`min-h-screen bg-[#0d0d12] text-white p-4 md:p-8 relative overflow-hidden ${showPreviewMobile ? 'h-screen overflow-hidden' : 'overflow-auto'}`}>
+        <div className={`min-h-screen bg-[#0d0d12] text-white p-4 md:p-8 relative ${showPreviewMobile ? 'h-screen overflow-hidden' : ''}`}>
 
             {/* FASE 4 / TAREA 4: Modal de Bienvenida para usuarios que recién crearon su nexus */}
             {creatorData.hasSeenWelcomeModal === false && (
@@ -375,27 +427,40 @@ export default function CreatorDashboard() {
             />
 
             <div className="relative z-10 max-w-3xl mx-auto">
-                <header className="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
-                            Centro de Mando
-                        </h1>
-                        <p className="text-gray-400 mt-2 flex items-center gap-3">
-                            <span>Plan actual: <span className="uppercase font-extrabold tracking-wider transition-colors duration-300" style={{ color: primaryColor }}>{creatorData.isPremium ? 'PRO ⭐' : 'Free'}</span></span>
-                            {!creatorData.isPremium && (
-                                <button
-                                    onClick={handleMakePremium}
-                                    className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-lg hover:shadow-yellow-500/50 transition-all hover:-translate-y-0.5"
-                                >
-                                    ⭐ Unirse a Premium
-                                </button>
-                            )}
-                        </p>
+                <header className="flex flex-col md:flex-row justify-between items-center mb-10 pb-6 border-b border-gray-800 gap-6">
+                    <div className="flex flex-col md:flex-row items-center gap-4">
+                        <div className="text-center md:text-left">
+                            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+                                Centro de Mando
+                            </h1>
+                            <p className="text-gray-400 mt-2 flex items-center justify-center md:justify-start gap-3">
+                                <span>Plan actual: <span className="uppercase font-extrabold tracking-wider transition-colors duration-300" style={{ color: primaryColor }}>{creatorData.isPremium ? 'PRO ⭐' : 'Free'}</span></span>
+                            </p>
+                        </div>
+
+                        {!creatorData.isPremium && (
+                            <button
+                                onClick={handleMakePremium}
+                                className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs font-black px-4 py-1.5 rounded-full shadow-lg hover:shadow-yellow-500/50 transition-all hover:-translate-y-0.5"
+                            >
+                                ⭐ Unirse a Premium
+                            </button>
+                        )}
+
+                        <button
+                            onClick={handleCopyLink}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#15151b] border border-gray-800 rounded-xl text-sm font-bold text-white hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+                        >
+                            🔗 Copiar mi enlace
+                        </button>
                     </div>
                     <div className="flex items-center gap-4">
                         <NotificationBell />
                         <button
-                            onClick={() => auth.signOut()}
+                            onClick={async () => {
+                                await fetch('/api/auth/session', { method: 'DELETE' });
+                                auth.signOut();
+                            }}
                             className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors"
                         >
                             Cerrar Sesión
@@ -466,17 +531,42 @@ export default function CreatorDashboard() {
                                     {/* ANALYTICS VISUALES AQUI */}
                                     {creatorData.modules && creatorData.modules.length > 0 && (
                                         <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
-                                            <h3 className="text-xl font-bold text-white mb-6">Analíticas de Clics</h3>
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h3 className="text-xl font-bold text-white">Analíticas de Clics</h3>
+                                                <div className="flex bg-gray-800 rounded-lg p-1">
+                                                    <button
+                                                        onClick={() => setStatsTimeframe('24h')}
+                                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${statsTimeframe === '24h' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                                    >
+                                                        24h
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setStatsTimeframe('7d')}
+                                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${statsTimeframe === '7d' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                                    >
+                                                        7d
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setStatsTimeframe('all')}
+                                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${statsTimeframe === 'all' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                                    >
+                                                        Total
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <div className="h-64 w-full">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart data={analyticsData}>
-                                                        <XAxis dataKey="title" stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
-                                                        <YAxis stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
+                                                        <XAxis dataKey="title" stroke="#8884d8" fontSize={10} tickLine={false} axisLine={false} />
+                                                        <YAxis stroke="#8884d8" fontSize={10} tickLine={false} axisLine={false} />
                                                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1f2028', border: 'none', borderRadius: '12px' }} />
                                                         <Bar dataKey="clicks" fill={primaryColor} radius={[6, 6, 0, 0]} isAnimationActive={false} />
                                                     </BarChart>
                                                 </ResponsiveContainer>
                                             </div>
+                                            <p className="text-[10px] text-gray-500 mt-4 text-center">
+                                                * Los datos de 24h y 7d son aproximados basados en eventos recientes.
+                                            </p>
                                         </div>
                                     )}
                                 </motion.div>
@@ -484,60 +574,23 @@ export default function CreatorDashboard() {
 
                             {activeTab === 'appearance' && (
                                 <motion.div key="appearance" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
-                                    {/* THEME ENGINE 2.0 PANEL OR BASIC INFO */}
+                                    {/* SECCIÓN DISEÑO MOVIDA AL PRINCIPIO DE APARIENCIA */}
                                     <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl">
-                                        <h3 className="text-xl font-bold mb-6 text-white text-center md:text-left">Información Personal</h3>
-
-                                        <form onSubmit={handleSaveProfile} className="space-y-6">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-400 mb-2">
-                                                    Nombre a Mostrar
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={displayName}
-                                                    onChange={(e) => setDisplayName(e.target.value)}
-                                                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl px-5 py-4 focus:ring-2 outline-none text-white transition-all focus:bg-gray-800"
-                                                    style={{ '--tw-ring-color': primaryColor } as any}
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-400 mb-2">
-                                                    Biografía
-                                                </label>
-                                                <textarea
-                                                    rows={3}
-                                                    value={bio}
-                                                    onChange={(e) => setBio(e.target.value)}
-                                                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl px-5 py-4 focus:ring-2 outline-none text-white resize-none transition-all focus:bg-gray-800"
-                                                    style={{ '--tw-ring-color': primaryColor } as any}
-                                                    placeholder="Cuéntale al mundo quién eres..."
-                                                />
-                                            </div>
-
-                                            <div className="flex justify-end pt-6">
-                                                <button type="submit" disabled={isSaving} className={`w-full md:w-auto px-10 py-4 font-bold rounded-2xl transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 ${getContrastYIQ(primaryColor)}`} style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}40` }}>{isSaving ? 'Guardando...' : 'Guardar Básicos'}</button>
-                                            </div>
-                                        </form>
-                                    </div>
-
-                                    {/* SECCIÓN DISEÑO MOVIDA A APARIENCIA */}
-                                    <div className="bg-gray-900/60 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl mt-8">
                                         <div className="flex items-center gap-2 mb-6 group relative w-fit">
-                                            <h3 className="text-xl font-bold text-white text-center md:text-left">Identidad de Marca y Tema</h3>
-                                            <svg className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 p-3 text-xs bg-gray-900 border border-gray-700 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                            <h3 className="text-xl font-bold text-white text-center md:text-left tracking-tight flex items-center gap-2">
+                                                Identidad de Marca y Tema
+                                                <svg className="w-5 h-5 text-gray-400 cursor-help hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </h3>
+                                            <div className="absolute left-0 top-full mt-2 w-64 p-3 text-xs bg-gray-900 border border-gray-700 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-[100] translate-y-2 group-hover:translate-y-0">
                                                 ¿Cómo usar el Fondo de Pantalla? Pega una URL o sube una imagen optimizada. ¿Audio Ambiental? Pega un link de mp3.
                                             </div>
                                         </div>
                                         <form onSubmit={handleSaveProfile} className="space-y-6">
                                             <div className="pt-2">
-                                                <label className="block text-sm font-medium text-gray-400 mb-4 mt-4 text-center md:text-left">
-                                                    Color del Tema
+                                                <label className="block text-sm font-medium text-gray-400 mb-4 mt-2 text-center md:text-left">
+                                                    Color de Acento (Primario)
                                                 </label>
                                                 <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center">
                                                     {THEME_COLORS.map((color) => (
@@ -546,23 +599,21 @@ export default function CreatorDashboard() {
                                                             type="button"
                                                             onClick={() => setPrimaryColor(color.hex)}
                                                             title={color.name}
-                                                            className={`w-12 h-12 rounded-full transition-all duration-300 flex items-center justify-center ${primaryColor === color.hex ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0d0d12]' : 'hover:scale-110'
+                                                            className={`w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center ${primaryColor === color.hex ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2 ring-offset-[#0d0d12]' : 'hover:scale-110'
                                                                 }`}
                                                             style={{ backgroundColor: color.hex, boxShadow: primaryColor === color.hex ? `0 0 20px ${color.hex}80` : 'none' }}
                                                         >
                                                             {primaryColor === color.hex && (
-                                                                <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                                                 </svg>
                                                             )}
                                                         </button>
                                                     ))}
 
-                                                    {/* Selector de Color Personalizado en Tiempo Real */}
                                                     <div
-                                                        className="relative w-12 h-12 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center cursor-pointer shadow-lg hover:scale-110"
-                                                        style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}80` }}
-                                                        title="Color Personalizado Profundo"
+                                                        className="relative w-10 h-10 rounded-full overflow-hidden transition-all duration-300 flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 border border-white/20"
+                                                        style={{ backgroundColor: primaryColor }}
                                                     >
                                                         <input
                                                             type="color"
@@ -587,21 +638,20 @@ export default function CreatorDashboard() {
                                                             }}
                                                             className="absolute -top-4 -left-4 w-24 h-24 cursor-pointer opacity-0"
                                                         />
-                                                        <svg className="w-5 h-5 text-black pointer-events-none mix-blend-difference opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <svg className="w-5 h-5 text-white mix-blend-difference" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                                         </svg>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* THEME ENGINE 2.0 CONTROLS */}
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-800/50">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-800/50">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-400 mb-2">Tipografía (Google Fonts)</label>
+                                                    <label className="block text-sm font-medium text-gray-400 mb-2">Tipografía Principal</label>
                                                     <select
                                                         value={fontFamily}
                                                         onChange={(e) => setFontFamily(e.target.value)}
-                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
+                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                                                     >
                                                         {FONT_WHITELIST.map(font => (
                                                             <option key={font} value={font}>{font}</option>
@@ -609,142 +659,146 @@ export default function CreatorDashboard() {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-400 mb-2">Skin Base (Fallback)</label>
+                                                    <label className="block text-sm font-medium text-gray-400 mb-2">Skin Base (Estilo)</label>
                                                     <select
                                                         value={activeSkin}
                                                         onChange={(e) => setActiveSkin(e.target.value)}
-                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
+                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                                                     >
                                                         <option value="default">Default (Cristal)</option>
                                                         <option value="gotham">Gotham (Oscuro/Neón)</option>
                                                         <option value="burton">Burton (Dibujado)</option>
                                                         <option value="minimalist">Minimalist (Limpio)</option>
                                                         <option value="neumorphism">Neumorphism (3D Suave)</option>
-                                                        <option value="sunset">Sunset (Gradiente Cálido)</option>
+                                                        <option value="royal_midnight">Royal Midnight (👑 Deluxe)</option>
+                                                        <option value="organic_zen">Organic Zen (🍃 Natural)</option>
+                                                        <option value="neon_cyberpunk">Neon Cyberpunk (⚡ High-Contrast)</option>
+                                                        <option value="frosted_glass">Frosted Glass (❄️ White Frost)</option>
                                                     </select>
-                                                </div>
-                                                <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                                    {/* IMAGE BG - URL O UPLOAD */}
-                                                    <div className="space-y-2">
-                                                        <label className="block text-sm font-medium text-gray-400">🖼️ Fondo de Pantalla</label>
-                                                        {videoBgUrl ? (
-                                                            <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
-                                                                <span className="text-xl">🖼️</span>
-                                                                <span className="text-xs text-green-400 flex-1 truncate font-bold">Fondo activo ✓</span>
-                                                                <button type="button" onClick={() => setVideoBgUrl('')} className="text-red-400 text-xs px-2 py-1 bg-red-500/10 rounded-lg">✕ Quitar</button>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                <div className="flex flex-col gap-2">
-                                                                    <input
-                                                                        type="url"
-                                                                        value={videoBgUrl}
-                                                                        onChange={(e) => setVideoBgUrl(e.target.value)}
-                                                                        placeholder="Ej: https://.../img.jpg"
-                                                                        className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
-                                                                    />
-                                                                    <label className="flex items-center justify-center gap-2 bg-gray-800/50 border border-dashed border-gray-600 rounded-xl h-[46px] cursor-pointer hover:border-purple-500/60 hover:bg-gray-800 transition-all text-gray-400">
-                                                                        <span className="text-xl">📤</span>
-                                                                        <span className="text-xs font-bold">Subir Imagen (Auto-optimizado)</span>
-                                                                        <input
-                                                                            type="file"
-                                                                            accept="image/*"
-                                                                            className="hidden"
-                                                                            onChange={async (e) => {
-                                                                                const file = e.target.files?.[0];
-                                                                                if (!file || !auth.currentUser) return;
-                                                                                setIsSaving(true);
-                                                                                try {
-                                                                                    // Comprimir con canvas 
-                                                                                    const compressedBlob = await new Promise<Blob>((resolve, reject) => {
-                                                                                        const img = new window.Image();
-                                                                                        const reader = new FileReader();
-                                                                                        reader.onload = (ev) => {
-                                                                                            img.src = ev.target?.result as string;
-                                                                                            img.onload = () => {
-                                                                                                const MAX = 1920;
-                                                                                                const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
-                                                                                                const canvas = document.createElement('canvas');
-                                                                                                canvas.width = Math.round(img.width * ratio);
-                                                                                                canvas.height = Math.round(img.height * ratio);
-                                                                                                const ctx = canvas.getContext('2d')!;
-                                                                                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                                                                canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas fail')), 'image/jpeg', 0.80);
-                                                                                            };
-                                                                                            img.onerror = reject;
-                                                                                        };
-                                                                                        reader.onerror = reject;
-                                                                                        reader.readAsDataURL(file);
-                                                                                    });
-                                                                                    const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-image-${Date.now()}.jpg`);
-                                                                                    await uploadBytes(storageRef, compressedBlob, { contentType: 'image/jpeg' });
-                                                                                    const url = await getDownloadURL(storageRef);
-                                                                                    setVideoBgUrl(url);
-                                                                                } catch (err: any) {
-                                                                                    console.error('[BG UPLOAD ERROR]', err);
-                                                                                    toast.error(`Error al subir imagen: ${err?.code || err?.message || 'desconocido'}`);
-                                                                                } finally {
-                                                                                    setIsSaving(false);
-                                                                                    e.target.value = '';
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </label>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                        <p className="text-[11px] text-gray-500">Puedes subir tu propio fondo o pegar una URL directa.</p>
-                                                    </div>
-
-                                                    {/* AUDIO BG UPLOADER */}
-                                                    <div className="space-y-2">
-                                                        <label className="block text-sm font-medium text-gray-400">Audio Ambiental (MP3, max 5MB)</label>
-                                                        {audioBgUrl ? (
-                                                            <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
-                                                                <span className="text-2xl">🎵</span>
-                                                                <span className="text-xs text-gray-300 flex-1 truncate">Audio activo ✓</span>
-                                                                <button type="button" onClick={() => setAudioBgUrl('')} className="text-red-400 text-xs px-2 py-1 bg-red-500/10 rounded-lg">✕ Quitar</button>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                <label className="flex flex-col items-center gap-2 p-4 bg-gray-800/50 border border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-purple-500/60 hover:bg-gray-800 transition-all text-center">
-                                                                    <span className="text-2xl">🎵</span>
-                                                                    <span className="text-xs text-gray-400">Subir audio MP3 · Máx. 5MB</span>
-                                                                    <span className="text-[11px] text-gray-500">Sonido ambiental que se reproduce en tu perfil</span>
-                                                                    <input type="file" accept="audio/mpeg,audio/mp3,audio/*" className="hidden" onChange={async (e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (!file || !auth.currentUser) return;
-                                                                        if (file.size > 5 * 1024 * 1024) { toast.error('El audio no puede superar 5MB'); return; }
-                                                                        setIsSaving(true);
-                                                                        try {
-                                                                            const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-audio.mp3`);
-                                                                            await uploadBytes(storageRef, file);
-                                                                            const url = await getDownloadURL(storageRef);
-                                                                            setAudioBgUrl(url);
-                                                                        } catch (err: any) {
-                                                                            console.error('[AUDIO UPLOAD ERROR]', err);
-                                                                            toast.error(`Error al subir audio: ${err?.code || err?.message || 'desconocido'}`);
-                                                                        }
-                                                                        finally { setIsSaving(false); e.target.value = ''; }
-                                                                    }} />
-                                                                </label>
-                                                                <p className="text-[11px] text-gray-500 text-center">O pega una URL directa de .mp3</p>
-                                                                <input type="url" value={audioBgUrl} onChange={(e) => setAudioBgUrl(e.target.value)} placeholder="https://.../audio.mp3" className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors" />
-                                                            </>
-                                                        )}
-                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex justify-end pt-6">
-                                                <button
-                                                    type="submit"
-                                                    disabled={isSaving}
-                                                    className={`w-full md:w-auto px-10 py-4 font-bold rounded-2xl transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 ${getContrastYIQ(primaryColor)}`}
-                                                    style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}40` }}
-                                                >
-                                                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                                                <div className="space-y-2">
+                                                    <label className="block text-sm font-medium text-gray-400">🖼️ Fondo Personalizado</label>
+                                                    {videoBgUrl ? (
+                                                        <div className="flex items-center gap-2 bg-gray-800/60 p-2 rounded-xl border border-gray-700">
+                                                            <img src={videoBgUrl} className="w-8 h-8 rounded object-cover" />
+                                                            <span className="text-xs text-green-400 flex-1 truncate font-bold italic">Imagen de Fondo Activa ✓</span>
+                                                            <button type="button" onClick={() => setVideoBgUrl('')} className="text-red-400 p-1 hover:bg-red-500/10 rounded-lg">✕</button>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="flex items-center justify-center gap-2 bg-gray-800/30 border border-dashed border-gray-700 rounded-xl h-[52px] cursor-pointer hover:border-blue-500/50 hover:bg-gray-800 transition-all text-gray-400">
+                                                            <span className="text-lg">📤</span>
+                                                            <span className="text-xs font-bold uppercase tracking-wider">Subir Imagen</span>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={async (e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (!file || !auth.currentUser) return;
+                                                                    setIsSaving(true);
+                                                                    try {
+                                                                        // Comprimir con canvas 
+                                                                        const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+                                                                            const img = new window.Image();
+                                                                            const reader = new FileReader();
+                                                                            reader.onload = (ev) => {
+                                                                                img.src = ev.target?.result as string;
+                                                                                img.onload = () => {
+                                                                                    const MAX = 1920;
+                                                                                    const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+                                                                                    const canvas = document.createElement('canvas');
+                                                                                    canvas.width = Math.round(img.width * ratio);
+                                                                                    canvas.height = Math.round(img.height * ratio);
+                                                                                    const ctx = canvas.getContext('2d')!;
+                                                                                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                                                    canvas.toBlob(b => b ? resolve(b) : reject(new Error('canvas fail')), 'image/jpeg', 0.80);
+                                                                                };
+                                                                                img.onerror = reject;
+                                                                            };
+                                                                            reader.onerror = reject;
+                                                                            reader.readAsDataURL(file);
+                                                                        });
+                                                                        const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-image-${Date.now()}.jpg`);
+                                                                        await uploadBytes(storageRef, compressedBlob, { contentType: 'image/jpeg' });
+                                                                        const url = await getDownloadURL(storageRef);
+                                                                        setVideoBgUrl(url);
+                                                                    } catch (err: any) {
+                                                                        console.error('[BG UPLOAD ERROR]', err);
+                                                                        toast.error(`Error al subir imagen: ${err?.code || err?.message || 'desconocido'}`);
+                                                                    } finally {
+                                                                        setIsSaving(false);
+                                                                        e.target.value = '';
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </label>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="block text-sm font-medium text-gray-400">🎵 Audio (MP3)</label>
+                                                    <label className="flex items-center justify-center gap-2 bg-gray-800/30 border border-dashed border-gray-700 rounded-xl h-[52px] cursor-pointer hover:border-blue-500/50 hover:bg-gray-800 transition-all text-gray-400">
+                                                        <span className="text-lg">{audioBgUrl ? '✅' : '🎸'}</span>
+                                                        <span className="text-xs font-bold uppercase tracking-wider">{audioBgUrl ? 'Audio Listo' : 'Subir MP3'}</span>
+                                                        <input type="file" accept="audio/mpeg,audio/mp3,audio/*" className="hidden" onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file || !auth.currentUser) return;
+                                                            if (file.size > 5 * 1024 * 1024) { toast.error('El audio no puede superar 5MB'); return; }
+                                                            setIsSaving(true);
+                                                            try {
+                                                                const storageRef = ref(storage, `creators/${auth.currentUser.uid}/theme/bg-audio.mp3`);
+                                                                await uploadBytes(storageRef, file);
+                                                                const url = await getDownloadURL(storageRef);
+                                                                setAudioBgUrl(url);
+                                                            } catch (err: any) {
+                                                                console.error('[AUDIO UPLOAD ERROR]', err);
+                                                                toast.error(`Error al subir audio: ${err?.code || err?.message || 'desconocido'}`);
+                                                            }
+                                                            finally { setIsSaving(false); e.target.value = ''; }
+                                                        }} />
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end border-t border-gray-800 pt-6">
+                                                <button type="submit" disabled={isSaving} className={`w-full md:w-auto px-10 py-4 font-bold rounded-2xl transition-all shadow-xl hover:-translate-y-1 ${getContrastYIQ(primaryColor)}`} style={{ backgroundColor: primaryColor }}>
+                                                    {isSaving ? 'Guardando...' : 'Aplicar Diseño'}
                                                 </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {/* SECCIÓN INFORMACIÓN PERSONAL (AHORA SEGUNDA) */}
+                                    <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 rounded-3xl p-6 shadow-2xl mt-8">
+                                        <h3 className="text-xl font-bold mb-6 text-white tracking-tight">Información de Perfil</h3>
+                                        <form onSubmit={handleSaveProfile} className="space-y-6">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-400 mb-2">Nombre Público</label>
+                                                <input
+                                                    type="text"
+                                                    value={displayName}
+                                                    onChange={(e) => setDisplayName(e.target.value)}
+                                                    className="w-full bg-gray-800/30 border border-gray-700/50 rounded-2xl px-5 py-4 focus:ring-1 outline-none text-white transition-all"
+                                                    style={{ '--tw-ring-color': primaryColor } as any}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-400 mb-2">Breve Biografía</label>
+                                                <textarea
+                                                    rows={3}
+                                                    value={bio}
+                                                    onChange={(e) => setBio(e.target.value)}
+                                                    className="w-full bg-gray-800/30 border border-gray-700/50 rounded-2xl px-5 py-4 focus:ring-1 outline-none text-white resize-none transition-all"
+                                                    style={{ '--tw-ring-color': primaryColor } as any}
+                                                    placeholder="Cuéntale al mundo quién eres..."
+                                                />
+                                            </div>
+                                            <div className="flex justify-end pt-4">
+                                                <button type="submit" disabled={isSaving} className="text-gray-400 hover:text-white font-bold transition-colors">Actualizar Perfil</button>
                                             </div>
                                         </form>
                                     </div>
@@ -808,8 +862,8 @@ export default function CreatorDashboard() {
                     </div>
 
                     {/* COLUMNA DERECHA: LIVE PREVIEW MOCKUP (40%) */}
-                    <div className={`w-full md:w-[40%] flex justify-center sticky top-8 h-[calc(100vh-4rem)] ${!showPreviewMobile ? 'hidden md:flex' : 'flex'}`}>
-                        <div className="w-[375px] h-[812px] bg-black border-8 border-gray-800 rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col items-center pt-12 pb-8">
+                    <div className={`w-full md:w-[40%] flex justify-center md:sticky md:top-8 md:self-start ${!showPreviewMobile ? 'hidden md:flex' : 'flex'}`}>
+                        <div className="w-[min(375px,90vw)] h-[min(812px,calc(100vh-6rem))] bg-black border-8 border-gray-800 rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col items-center pt-12 pb-8">
                             <div className="absolute top-0 inset-x-0 h-7 bg-gray-800 rounded-b-3xl w-40 mx-auto z-50"></div> {/* Notch */}
 
                             {/* LIVE PREVIEW CONTENT */}
@@ -852,6 +906,8 @@ export default function CreatorDashboard() {
                     </div>
 
                 </div>
+
+                <HelpButton />
             </div >
         </div >
     );

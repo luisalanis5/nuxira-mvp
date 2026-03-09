@@ -60,9 +60,21 @@ export async function POST(req: NextRequest) {
             const currentClicks = typeof modules[moduleIndex].clicks === 'number' ? modules[moduleIndex].clicks : 0;
             modules[moduleIndex].clicks = currentClicks + 1;
 
-            // Actualizar el documento en Firestore
+            // 1. Actualizar el total de clics en el array de módulos (Legacy/Speed)
             await creatorRef.update({
                 modules: modules
+            });
+
+            // 2. ATOMIC LOGGING: Registrar evento en subcolección para analíticas temporales
+            const analyticsRef = creatorRef.collection('analytics_events');
+            await analyticsRef.add({
+                type: 'click',
+                moduleId: moduleId,
+                timestamp: FieldValue.serverTimestamp(),
+                metadata: {
+                    userAgent: req.headers.get('user-agent') || 'unknown',
+                    referrer: req.headers.get('referer') || 'direct'
+                }
             });
 
             return NextResponse.json({ success: true, clicks: modules[moduleIndex].clicks });

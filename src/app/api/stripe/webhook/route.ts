@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { adminDb } from '@/lib/firebase/admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || '').trim(), {
     apiVersion: '2025-02-24.acacia' as any,
@@ -59,6 +60,16 @@ export async function POST(req: Request) {
                         stripeSubscriptionId: session.subscription as string,
                         premiumActivatedAt: new Date().toISOString(),
                     });
+
+                    // Trigger Notification
+                    await adminDb.collection('creators').doc(uid).collection('notifications').add({
+                        type: 'system',
+                        message: '¡Tu cuenta ha sido actualizada a Premium! ✨ Disfruta de todos los beneficios.',
+                        isRead: false,
+                        createdAt: FieldValue.serverTimestamp(),
+                        actionUrl: '/dashboard'
+                    });
+
                     console.log(`[webhook] ✅ Creator ${uid} upgraded to Premium`);
 
                 } else if (session.mode === 'payment') {
@@ -86,6 +97,16 @@ export async function POST(req: Request) {
                             unlockedAt: new Date().toISOString(),
                             sessionId,
                         });
+
+                    // Trigger Notification for the creator
+                    await adminDb.collection('creators').doc(creatorId).collection('notifications').add({
+                        type: 'payment',
+                        message: `¡Has recibido un nuevo pago! 💰 Un usuario ha desbloqueado un módulo (${buyerEmail || 'Anónimo'}).`,
+                        isRead: false,
+                        createdAt: FieldValue.serverTimestamp(),
+                        actionUrl: '/dashboard?tab=payments'
+                    });
+
                     console.log(`[webhook] 🔓 Module ${moduleId} unlocked for ${buyerEmail} (session: ${sessionId})`);
                 }
                 break;

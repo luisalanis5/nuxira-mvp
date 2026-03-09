@@ -1,4 +1,4 @@
-export type SkinName = 'default' | 'gotham' | 'burton' | 'minimalist' | 'neumorphism' | 'sunset' | 'glassmorphism_pro' | 'minimal_border' | 'cyber_glow';
+export type SkinName = 'default' | 'gotham' | 'burton' | 'minimalist' | 'neumorphism' | 'sunset' | 'glassmorphism_pro' | 'minimal_border' | 'cyber_glow' | 'royal_midnight' | 'organic_zen' | 'neon_cyberpunk' | 'frosted_glass';
 
 export interface SkinConfig {
     id: SkinName;
@@ -91,6 +91,42 @@ export const SKINS: Record<SkinName, SkinConfig> = {
         textClass: 'text-white font-mono',
         buttonClass: 'rounded-none border border-gray-700 hover:bg-gray-900',
         baseFont: 'font-mono'
+    },
+    royal_midnight: {
+        id: 'royal_midnight',
+        name: 'Royal Midnight (Dorado/Azul)',
+        containerClass: 'min-h-screen bg-[#0a0f1e] text-amber-200 selection:bg-amber-500 selection:text-black relative overflow-hidden',
+        cardClass: 'bg-[#121a2e]/80 backdrop-blur-md border border-amber-900/30 shadow-[0_4px_20px_rgba(217,176,10,0.1)] rounded-3xl',
+        textClass: 'text-amber-100',
+        buttonClass: 'rounded-2xl border border-amber-500/50 bg-amber-900/20 hover:bg-amber-900/40 transition-all font-bold tracking-wide',
+        baseFont: 'font-sans'
+    },
+    organic_zen: {
+        id: 'organic_zen',
+        name: 'Organic Zen (Naturaleza)',
+        containerClass: 'min-h-screen bg-[#f4f7f4] text-emerald-900 selection:bg-emerald-200 selection:text-emerald-900 relative overflow-hidden',
+        cardClass: 'bg-white/80 backdrop-blur-sm border border-emerald-100 shadow-lg shadow-emerald-900/5 rounded-[2rem]',
+        textClass: 'text-emerald-900/80',
+        buttonClass: 'rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-all font-medium',
+        baseFont: 'font-serif'
+    },
+    neon_cyberpunk: {
+        id: 'neon_cyberpunk',
+        name: 'Neon Cyberpunk (Vibrante)',
+        containerClass: 'min-h-screen bg-[#050505] text-[#f0f0f0] selection:bg-[#ffff00] selection:text-black relative overflow-hidden',
+        cardClass: 'bg-black border-2 border-[#39ff14] shadow-[4px_4px_0px_0px_#39ff14] rounded-none',
+        textClass: 'text-[#39ff14] font-black italic uppercase',
+        buttonClass: 'rounded-none border-2 border-[#ff00ff] bg-transparent hover:bg-[#ff00ff]/10 text-[#ff00ff] shadow-[2px_2px_0px_0px_#ff00ff] transition-all',
+        baseFont: 'font-mono'
+    },
+    frosted_glass: {
+        id: 'frosted_glass',
+        name: 'Frosted Glass (Cristal Blanco)',
+        containerClass: 'min-h-screen bg-gradient-to-tr from-blue-50 to-purple-50 text-slate-800 selection:bg-blue-200 relative overflow-hidden',
+        cardClass: 'bg-white/40 backdrop-blur-[20px] border border-white/50 shadow-2xl shadow-blue-500/5 rounded-3xl',
+        textClass: 'text-slate-700',
+        buttonClass: 'rounded-2xl bg-white/60 hover:bg-white/80 border border-white/80 shadow-sm transition-all text-slate-900 font-semibold',
+        baseFont: 'font-sans'
     }
 };
 

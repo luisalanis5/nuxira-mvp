@@ -18,6 +18,16 @@ export async function POST(req: Request) {
             createdAt: FieldValue.serverTimestamp()
         });
 
+        // Trigger Notification
+        const notifsRef = adminDb.collection('creators').doc(creatorId).collection('notifications');
+        await notifsRef.add({
+            type: 'question',
+            message: 'Alguien te ha dejado una nueva pregunta anónima.',
+            isRead: false,
+            createdAt: FieldValue.serverTimestamp(),
+            actionUrl: '/dashboard?tab=interaction'
+        });
+
         return NextResponse.json({ success: true });
     } catch (error: any) {
         return NextResponse.json({ error: 'Error procesando la pregunta' }, { status: 500 });

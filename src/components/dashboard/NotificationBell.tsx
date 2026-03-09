@@ -2,16 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useRouter } from 'next/navigation';
 
 export default function NotificationBell() {
-    const { notifications, unreadCount, markAllAsRead } = useNotifications();
+    const { notifications, unreadCount, markAsRead } = useNotifications();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
 
     const toggleOpen = () => {
-        if (!isOpen && unreadCount > 0) {
-            markAllAsRead();
-        }
         setIsOpen(!isOpen);
     };
 
@@ -24,6 +23,25 @@ export default function NotificationBell() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const formatNotifDate = (createdAt: any) => {
+        if (!createdAt) return 'Reciente';
+        const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+        return `${date.toLocaleDateString()} a las ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    };
+
+    const handleNotificationClick = async (id: string, actionUrl?: string) => {
+        // 1. Mark as read in Firestore
+        await markAsRead(id);
+
+        // 2. Close the menu
+        setIsOpen(false);
+
+        // 3. Redirect if actionUrl exists
+        if (actionUrl) {
+            router.push(actionUrl);
+        }
+    };
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -45,7 +63,7 @@ export default function NotificationBell() {
                 <div className="absolute right-0 mt-2 w-80 bg-[#15151b] border border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden transform origin-top-right animate-in fade-in scale-95 duration-200">
                     <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#0d0d12]">
                         <h3 className="font-bold text-white">Notificaciones</h3>
-                        <span className="text-xs text-gray-400 font-bold bg-gray-800 px-2 py-1 rounded-full">{notifications.length} Info</span>
+                        <span className="text-xs text-gray-400 font-bold bg-gray-800 px-2 py-1 rounded-full">{notifications.length}</span>
                     </div>
 
                     <div className="max-h-96 overflow-y-auto overflow-x-hidden scrollbar-hide">
@@ -57,7 +75,11 @@ export default function NotificationBell() {
                         ) : (
                             <ul className="divide-y divide-gray-800/30">
                                 {notifications.map(notif => (
-                                    <li key={notif.id} className={`p-4 transition-colors ${!notif.read ? 'bg-blue-500/10 border-l-2 border-blue-500' : 'hover:bg-gray-800/30'}`}>
+                                    <li
+                                        key={notif.id}
+                                        onClick={() => handleNotificationClick(notif.id, notif.actionUrl)}
+                                        className={`p-4 transition-colors cursor-pointer ${!notif.isRead ? 'bg-blue-500/5 border-l-2 border-blue-500' : 'hover:bg-gray-800/30'}`}
+                                    >
                                         <div className="flex gap-3 items-start">
                                             <div className="text-xl mt-0.5 flex-shrink-0">
                                                 {notif.type === 'like' && '❤️'}
@@ -65,11 +87,12 @@ export default function NotificationBell() {
                                                 {notif.type === 'vote' && '📊'}
                                                 {notif.type === 'purchase' && '💸'}
                                                 {notif.type === 'system' && '⚡'}
+                                                {notif.type === 'verification' && '✔️'}
                                             </div>
-                                            <div>
-                                                <p className={`text-sm ${!notif.read ? 'text-white font-bold' : 'text-gray-300 font-medium'}`}>{notif.message}</p>
-                                                <span className="text-xs text-gray-500 mt-1 block">
-                                                    {new Date(notif.createdAt).toLocaleDateString()} a las {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            <div className="min-w-0 flex-1">
+                                                <p className={`text-sm leading-relaxed ${!notif.isRead ? 'text-white font-bold' : 'text-gray-300'}`}>{notif.message}</p>
+                                                <span className="text-[10px] text-gray-500 mt-1 block uppercase tracking-wider font-semibold">
+                                                    {formatNotifDate(notif.createdAt)}
                                                 </span>
                                             </div>
                                         </div>

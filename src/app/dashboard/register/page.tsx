@@ -27,6 +27,13 @@ export default function RegisterPage() {
             const result = await signInWithPopup(auth, googleProvider);
             const user = result.user;
 
+            const idToken = await user.getIdToken();
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+
             const userRef = doc(db, 'creators', user.uid);
             const userSnap = await getDoc(userRef);
 
@@ -83,6 +90,13 @@ export default function RegisterPage() {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
+            const idToken = await user.getIdToken();
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+
             // Paridad de datos: Actualizar perfil de Firebase con el nombre
             await updateProfile(user, { displayName: fullName });
 
@@ -117,6 +131,14 @@ export default function RegisterPage() {
         try {
             const result = await signInWithPopup(auth, facebookProvider);
             const user = result.user;
+
+            const idToken = await user.getIdToken();
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+
             const userRef = doc(db, 'creators', user.uid);
             const userSnap = await getDoc(userRef);
             if (userSnap.exists() && userSnap.data()?.username) {
@@ -141,6 +163,14 @@ export default function RegisterPage() {
         try {
             const result = await signInWithPopup(auth, twitterProvider);
             const user = result.user;
+
+            const idToken = await user.getIdToken();
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+
             const userRef = doc(db, 'creators', user.uid);
             const userSnap = await getDoc(userRef);
             if (userSnap.exists() && userSnap.data()?.username) {

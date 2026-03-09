@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db, auth, storage } from '@/lib/firebase/client';
-import { collection, query, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import toast from 'react-hot-toast';
@@ -71,6 +71,16 @@ export default function AdminDashboardPage() {
         setIsActionLoading(uid);
         try {
             await updateDoc(doc(db, 'creators', uid), { isVerified: true });
+
+            // Trigger Notification
+            await addDoc(collection(db, 'creators', uid, 'notifications'), {
+                type: 'verification',
+                message: '¡Felicidades! Tu cuenta ha sido verificada.',
+                isRead: false,
+                createdAt: serverTimestamp(),
+                actionUrl: '/dashboard'
+            });
+
             await deleteDoc(doc(db, 'verification_requests', uid));
             toast.success("✅ Creador verificado exitosamente");
             setRequests(prev => prev.filter(r => r.id !== uid));

@@ -24,7 +24,15 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // 2. Revisar si el usuario ya completó su onboarding en Firestore
+      // 2. Obtain ID Token for server session
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+
+      // 3. Revisar si el usuario ya completó su onboarding en Firestore
       const userRef = doc(db, 'creators', user.uid);
       const userSnap = await getDoc(userRef);
 
@@ -49,6 +57,14 @@ export default function LoginPage() {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       const user = result.user;
+
+      // Add server session
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
 
       // FASE 1: Redirección según estado
       if (!user.emailVerified) {
@@ -101,6 +117,14 @@ export default function LoginPage() {
     try {
       const result = await signInWithPopup(auth, facebookProvider);
       const user = result.user;
+
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+
       const userRef = doc(db, 'creators', user.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists() && userSnap.data()?.username) {
@@ -124,6 +148,14 @@ export default function LoginPage() {
     try {
       const result = await signInWithPopup(auth, twitterProvider);
       const user = result.user;
+
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+
       const userRef = doc(db, 'creators', user.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists() && userSnap.data()?.username) {
