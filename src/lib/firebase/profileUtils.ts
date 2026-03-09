@@ -27,6 +27,7 @@ export interface CreatorProfile {
     };
     stripeAccountId?: string;
     stripeSetupComplete?: boolean;
+    role?: string;
     createdAt: any;
     lastLogin: any;
 }
