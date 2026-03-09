@@ -32,12 +32,12 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
         const creatorId = auth.currentUser.uid;
         const feedRef = collection(db, 'creators', creatorId, 'feed_posts');
 
-        // VINCULACIÓN RELACIONAL SECRETA: Consultamos solo los del módulo activo
-        const q = query(
-            feedRef,
-            where('moduleId', '==', selectedModuleId),
-            // No podemos ordenar por createdAt si usamos where sin índice compuesto genérico, pero NextJS lo soportará si ordenamos localmente o creamos index
-        );
+        // VINCULACIÓN RELACIONAL: Filtramos por módulo si no es 'all'
+        let q = query(feedRef);
+
+        if (selectedModuleId !== 'all') {
+            q = query(feedRef, where('moduleId', '==', selectedModuleId));
+        }
 
         const unsubscribe = onSnapshot(
             q,
@@ -115,9 +115,32 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
         }
     };
 
+    const handleMovePost = async (postId: string, newModuleId: string) => {
+        if (!auth.currentUser || !newModuleId) return;
+        setIsPublishing(true);
+        try {
+            const postRef = doc(db, 'creators', auth.currentUser.uid, 'feed_posts', postId);
+            await updateDoc(postRef, { moduleId: newModuleId });
+            toast.success("Publicación movida con éxito.");
+        } catch (error) {
+            console.error("Error al mover post", error);
+            toast.error("Error al mover la publicación.");
+        } finally {
+            setIsPublishing(false);
+        }
+    };
+
     const handlePublish = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!auth.currentUser || !content.trim()) return;
+
+        // No se puede publicar en vista "Todas"
+        const targetModuleId = selectedModuleId === 'all' ? feedModules[0]?.id : selectedModuleId;
+
+        if (!targetModuleId) {
+            toast.error("Crea un módulo de Novedades primero.");
+            return;
+        }
 
         setIsPublishing(true);
         try {
@@ -125,7 +148,7 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
             await addDoc(feedRef, {
                 content,
                 imageUrl,
-                moduleId: selectedModuleId, // INYECCIÓN RELACIONAL!
+                moduleId: targetModuleId, // INYECCIÓN RELACIONAL!
                 likes: 0,
                 likedBy: [],
                 createdAt: serverTimestamp()
@@ -133,6 +156,7 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
 
             setContent('');
             setImageUrl('');
+            toast.success("¡Publicado!");
         } catch (error) {
             console.error("Error al publicar Novedad", error);
             toast.error("Error al publicar.");
@@ -165,16 +189,20 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
                     </p>
                 </div>
 
-                {feedModules.length > 1 && (
-                    <div className="bg-gray-800/80 p-2 rounded-xl border border-gray-700/50 flex flex-col shrink-0 min-w-[200px]">
-                        <span className="text-[10px] uppercase font-bold text-gray-400 mb-1 ml-1 px-1">Enviando a:</span>
+                {feedModules.length > 0 && (
+                    <div className="bg-gray-800/80 p-2 rounded-xl border border-gray-700/50 flex flex-col shrink-0 min-w-[240px]">
+                        <span className="text-[10px] uppercase font-black text-[#00FFCC] mb-1 ml-1 px-1 tracking-widest">
+                            {selectedModuleId === 'all' ? '🔍 Viendo Historial:' : '🚀 Enviando a:'}
+                        </span>
                         <select
                             value={selectedModuleId}
                             onChange={(e) => setSelectedModuleId(e.target.value)}
-                            className="w-full bg-gray-900 text-white font-bold border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                            className="w-full bg-gray-900 text-white font-bold border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00FFCC] transition-colors"
                         >
+                            <option value="all" className="font-bold text-[#00FFCC]">📁 Todas las Publicaciones</option>
+                            <hr className="border-gray-800" />
                             {feedModules.map(m => (
-                                <option key={m.id} value={m.id}>{m.title}</option>
+                                <option key={m.id} value={m.id}>📍 {m.title}</option>
                             ))}
                         </select>
                     </div>
@@ -230,11 +258,17 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
                     Pega una URL o sube directamente tu foto (máx 2MB).
                 </p>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex flex-col md:flex-row justify-between items-center pt-2 gap-4">
+                    <p className="text-gray-500 text-[11px] ml-1 order-2 md:order-1">
+                        {selectedModuleId === 'all'
+                            ? `⚠️ Estás en vista general. Se publicará en "${feedModules[0]?.title || '...'}" por defecto.`
+                            : `Esta publicación aparecerá solo en: ${feedModules.find(m => m.id === selectedModuleId)?.title}`
+                        }
+                    </p>
                     <button
                         type="submit"
                         disabled={isPublishing || !content.trim()}
-                        className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                        className="w-full md:w-auto px-8 py-3 bg-[#00FFCC] hover:bg-[#00e6b8] text-black text-sm font-bold rounded-xl disabled:opacity-50 transition-all shadow-lg shadow-[#00FFCC]/20 active:scale-95 order-1 md:order-2"
                     >
                         {isPublishing ? 'Publicando...' : 'Publicar Ahora'}
                     </button>
@@ -265,31 +299,57 @@ export default function FeedManager({ feedModules, creatorId }: { feedModules: a
             <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Tus Publicaciones Recientes</h4>
             <div className="space-y-4">
                 {posts.length === 0 && <p className="text-gray-500 text-sm italic py-4">Aún no has publicado nada. ¡Escribe tu primer post!</p>}
-                {posts.map(post => (
-                    <div key={post.id} className="p-4 bg-gray-800/20 border border-gray-700/50 rounded-2xl relative group">
-                        <p className="text-gray-200 text-sm whitespace-pre-wrap">{post.content}</p>
-                        {post.imageUrl && (
-                            <div
-                                className="relative mt-3 w-full h-32 rounded-lg border border-gray-700 overflow-hidden"
-                                onContextMenu={(e) => e.preventDefault()}
-                            >
-                                <Image src={post.imageUrl} alt="Adjunto" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+                {posts.map(post => {
+                    const postModule = feedModules.find(m => m.id === post.moduleId);
+                    return (
+                        <div key={post.id} className="p-4 bg-gray-800/20 border border-gray-700/50 rounded-2xl relative group hover:bg-gray-800/30 transition-all">
+                            <div className="flex justify-between items-start mb-2 pr-10">
+                                <div className="flex flex-wrap gap-2">
+                                    <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded border ${postModule ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse'}`}>
+                                        {postModule ? `📍 ${postModule.title}` : '⚠️ Sin Módulo'}
+                                    </span>
+                                    {feedModules.length > 1 && (
+                                        <div className="flex items-center gap-1 group/move">
+                                            <span className="text-[9px] text-gray-500 uppercase font-bold">Mover a:</span>
+                                            <select
+                                                className="bg-gray-900 border border-gray-700 text-[9px] text-gray-300 rounded px-1 py-0.5 focus:outline-none focus:border-[#00FFCC] cursor-pointer hover:border-gray-500 transition-colors"
+                                                onChange={(e) => handleMovePost(post.id, e.target.value)}
+                                                value={post.moduleId || ''}
+                                            >
+                                                <option value="" disabled>Seleccionar...</option>
+                                                {feedModules.map(m => (
+                                                    <option key={m.id} value={m.id}>{m.id === post.moduleId ? `(Actual) ${m.title}` : m.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        )}
-                        <div className="text-xs text-gray-500 mt-3 flex justify-between">
-                            <span>{post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleDateString() : 'Justo ahora'}</span>
-                            <span className="flex items-center gap-1">❤️ {post.likedBy?.length || post.likes || 0}</span>
-                        </div>
 
-                        <button
-                            onClick={() => handleDelete(post.id)}
-                            className="absolute top-4 right-4 p-2 text-gray-500 bg-gray-900/50 hover:bg-red-500/20 hover:text-red-400 rounded-xl opacity-100 md:opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-500/30"
-                            title="Eliminar Publicación"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                    </div>
-                ))}
+                            <p className="text-gray-200 text-sm whitespace-pre-wrap">{post.content}</p>
+                            {post.imageUrl && (
+                                <div
+                                    className="relative mt-3 w-full h-32 rounded-lg border border-gray-700 overflow-hidden"
+                                    onContextMenu={(e) => e.preventDefault()}
+                                >
+                                    <Image src={post.imageUrl} alt="Adjunto" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+                                </div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-3 flex justify-between">
+                                <span>{post.createdAt?.toDate ? new Date(post.createdAt.toDate()).toLocaleDateString() : 'Justo ahora'}</span>
+                                <span className="flex items-center gap-1">❤️ {post.likedBy?.length || post.likes || 0}</span>
+                            </div>
+
+                            <button
+                                onClick={() => handleDelete(post.id)}
+                                className="absolute top-4 right-4 p-2 text-gray-500 bg-gray-900/50 hover:bg-red-500/20 hover:text-red-400 rounded-xl opacity-100 md:opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-500/30"
+                                title="Eliminar Publicación"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
