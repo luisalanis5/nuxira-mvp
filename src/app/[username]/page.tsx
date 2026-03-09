@@ -263,7 +263,7 @@ export default async function CreatorProfile({ params }: { params: Promise<{ use
               {profile.bio || `Creador en ${APP_NAME}`}
             </p>
             <span className="text-sm mt-1 block text-left opacity-60 break-all">
-              {process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '')}/{username}
+              {process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '').replace('https://', '')}/{username}
             </span>
           </div>
         </div>

@@ -24,7 +24,7 @@ export const SKINS: Record<SkinName, SkinConfig> = {
         id: 'gotham',
         name: 'Gotham (Oscuro)',
         containerClass: 'min-h-screen bg-zinc-950 text-gray-200 selection:bg-purple-600 selection:text-white relative overflow-hidden',
-        cardClass: 'bg-zinc-900/80 border border-zinc-800 shadow-[0_0_15px_rgba(123,97,255,0.15)] rounded-2xl',
+        cardClass: 'bg-zinc-900/80 border border-white/5 shadow-[0_0_15px_rgba(123,97,255,0.15)] rounded-2xl backdrop-blur-sm',
         textClass: 'text-gray-100 font-black',
         buttonClass: 'rounded-sm border border-purple-500/50 shadow-[0_0_20px_rgba(123,97,255,0.4)]',
         baseFont: 'font-sans'
@@ -69,9 +69,9 @@ export const SKINS: Record<SkinName, SkinConfig> = {
         id: 'glassmorphism_pro',
         name: 'Glassmorphism Pro',
         containerClass: 'min-h-screen bg-gray-900 text-white selection:bg-white selection:text-black relative overflow-hidden',
-        cardClass: 'bg-white/5 backdrop-blur-[12px] border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] rounded-3xl',
+        cardClass: 'bg-white/10 backdrop-blur-[20px] border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] rounded-3xl',
         textClass: 'text-white',
-        buttonClass: 'rounded-2xl border border-white/20 hover:bg-white/10 transition-colors bg-white/5 backdrop-blur-[12px]',
+        buttonClass: 'rounded-2xl border border-white/20 hover:bg-white/20 transition-colors bg-white/10 backdrop-blur-md',
         baseFont: 'font-sans'
     },
     minimal_border: {
@@ -96,7 +96,7 @@ export const SKINS: Record<SkinName, SkinConfig> = {
         id: 'royal_midnight',
         name: 'Royal Midnight (Dorado/Azul)',
         containerClass: 'min-h-screen bg-[#0a0f1e] text-amber-200 selection:bg-amber-500 selection:text-black relative overflow-hidden',
-        cardClass: 'bg-[#121a2e]/80 backdrop-blur-md border border-amber-900/30 shadow-[0_4px_20px_rgba(217,176,10,0.1)] rounded-3xl',
+        cardClass: 'bg-[#121a2e]/60 backdrop-blur-lg border border-white/10 shadow-[0_4px_20px_rgba(217,176,10,0.1)] rounded-3xl',
         textClass: 'text-amber-100',
         buttonClass: 'rounded-2xl border border-amber-500/50 bg-amber-900/20 hover:bg-amber-900/40 transition-all font-bold tracking-wide',
         baseFont: 'font-sans'
