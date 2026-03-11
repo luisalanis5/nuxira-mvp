@@ -40,14 +40,18 @@ export default function VerifyEmailPage() {
                 body: JSON.stringify({ email: user.email, name: user.displayName || 'Creador' })
             });
 
-            if (!res.ok) throw new Error('Error limit');
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Error genérico del servidor');
+            }
 
             toast.success('Correo de verificación reenviado. Revisa tu bandeja y SPAM.');
         } catch (error: any) {
             if (error.code === 'auth/too-many-requests') {
                 toast.error('Has solicitado demasiados correos. Espera unos minutos.');
             } else {
-                toast.error('Ocurrió un error. Intenta de nuevo.');
+                console.error("Error reenviando correo:", error);
+                toast.error(`Error: ${error.message || 'Intenta de nuevo.'}`);
             }
         } finally {
             setIsResending(false);
@@ -113,6 +117,7 @@ export default function VerifyEmailPage() {
                     <button
                         onClick={async () => {
                             isIntentionalLogout.current = true;
+                            await fetch('/api/auth/session', { method: 'DELETE' });
                             await auth.signOut();
                             router.push('/dashboard/register');
                         }}

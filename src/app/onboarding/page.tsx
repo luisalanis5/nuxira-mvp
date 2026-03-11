@@ -131,7 +131,7 @@ export default function OnboardingPage() {
                         Crea tu enlace
                     </h1>
                     <p className="text-gray-400 text-center mb-8 text-sm">
-                        Ésta será tu única url (nuxira.app/tualias). Elige bien, será tu nexo con el mundo.
+                        Ésta será tu única url (nuxira.me/tualias). Elige bien, será tu nexo con el mundo.
                     </p>
 
                     <form onSubmit={handleCompleteOnboarding} className="space-y-6">
@@ -149,7 +149,7 @@ export default function OnboardingPage() {
                                     onChange={(e) => setUsername(e.target.value)}
                                     placeholder="tunombre"
                                     disabled={isSubmitting}
-                                    className={`w-full bg-[#050505] border border-white/10 rounded-xl pl-24 pr-12 py-4 text-white font-medium focus:outline-none focus:ring-1 transition-all
+                                    className={`w-full bg-[#050505] border border-white/10 rounded-xl pl-[92px] pr-12 py-4 text-white font-medium focus:outline-none focus:ring-1 transition-all
                                         ${isAvailable === true ? 'focus:border-[#c2cdff] focus:ring-[#c2cdff] border-[#c2cdff]/50' : ''}
                                         ${isAvailable === false && username.length > 2 ? 'focus:border-red-500 focus:ring-red-500 border-red-500/50' : 'focus:border-white/30 focus:ring-white/30'}
                                     `}

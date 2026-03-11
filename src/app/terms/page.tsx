@@ -95,10 +95,10 @@ export default function TermsPage() {
                             Para dudas legales, escríbenos a:
                         </p>
                         <a
-                            href="mailto:legal@nuxira.app"
+                            href="mailto:legal@nuxira.me"
                             className="inline-block mt-2 text-[#c2cdff] hover:text-white transition-colors"
                         >
-                            legal@nuxira.app
+                            legal@nuxira.me
                         </a>
                     </section>
 

@@ -108,7 +108,7 @@ export default function PrivacyPolicyPage() {
                             </h3>
                             <ol className="list-decimal pl-5 space-y-4 text-gray-300">
                                 <li>
-                                    Inicia sesión en tu cuenta de Nuxira en <Link href="/login" className="text-[#c2cdff] hover:underline">nuxira.app/login</Link>.
+                                    Inicia sesión en tu cuenta de Nuxira en <Link href="/login" className="text-[#c2cdff] hover:underline">nuxira.me/login</Link>.
                                 </li>
                                 <li>
                                     Dirígete a tu <strong>Centro de Mando</strong> (Dashboard).
@@ -130,7 +130,7 @@ export default function PrivacyPolicyPage() {
                             <div className="mt-8 pt-6 border-t border-white/10">
                                 <h4 className="text-white font-medium mb-2">¿Qué sucede cuando eliminas tu cuenta?</h4>
                                 <ul className="list-disc pl-5 space-y-2 text-sm text-gray-400">
-                                    <li>Tu página pública de Nuxira (nuxira.app/username) dejará de existir inmediatamente.</li>
+                                    <li>Tu página pública de Nuxira (nuxira.me/username) dejará de existir inmediatamente.</li>
                                     <li>Todos los enlaces, módulos y analíticas creados se borrarán permanentemente de nuestras bases de datos en Firestore.</li>
                                     <li>Tu registro de usuario de Firebase Authentication (asociado a tu Facebook/Apple ID) será destruido.</li>
                                     <li><strong>Esta acción es irreversible. No guardamos copias de seguridad de tus datos tras la eliminación.</strong></li>
@@ -146,10 +146,10 @@ export default function PrivacyPolicyPage() {
                             o si encuentras dificultades técnicas al intentar eliminar tus datos, no dudes en contactarnos:
                         </p>
                         <a
-                            href="mailto:privacy@nuxira.app"
+                            href="mailto:privacidad@nuxira.me"
                             className="inline-block mt-2 text-[#c2cdff] hover:text-white transition-colors"
                         >
-                            privacy@nuxira.app
+                            privacidad@nuxira.me
                         </a>
                     </section>
 

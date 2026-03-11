@@ -29,6 +29,7 @@ import NotificationBell from '@/components/dashboard/NotificationBell';
 import WelcomeModal from '@/components/dashboard/WelcomeModal';
 import QAManager from '@/components/dashboard/QAManager';
 import HelpButton from '@/components/dashboard/HelpButton';
+import FeedbackManager from '@/components/dashboard/FeedbackManager';
 
 import { CreatorProfile } from '@/lib/firebase/profileUtils';
 
@@ -71,7 +72,7 @@ export default function CreatorDashboard() {
     const [audioBgUrl, setAudioBgUrl] = useState('');
     const [fontFamily, setFontFamily] = useState('Inter');
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'appearance' | 'studio' | 'interaction' | 'payments' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'appearance' | 'studio' | 'interaction' | 'payments' | 'settings' | 'feedback'>('overview');
     const [statsTimeframe, setStatsTimeframe] = useState<'all' | '7d' | '24h'>('7d');
     const [aggregatedStats, setAggregatedStats] = useState<any[]>([]);
 
@@ -94,6 +95,8 @@ export default function CreatorDashboard() {
     useEffect(() => {
         const checkAuth = onAuthStateChanged(auth, async (user) => {
             if (!user) {
+                // Clear the server-side cookie to prevent proxy redirect loops
+                await fetch('/api/auth/session', { method: 'DELETE' });
                 router.push('/dashboard/login');
                 return;
             }
@@ -430,8 +433,11 @@ export default function CreatorDashboard() {
                 <header className="flex flex-col md:flex-row justify-between items-center mb-10 pb-6 border-b border-gray-800 gap-6">
                     <div className="flex flex-col md:flex-row items-center gap-4">
                         <div className="text-center md:text-left">
-                            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+                            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500 flex items-center gap-3">
                                 Centro de Mando
+                                <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full uppercase tracking-widest font-black shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                                    Beta
+                                </span>
                             </h1>
                             <p className="text-gray-400 mt-2 flex items-center justify-center md:justify-start gap-3">
                                 <span>Plan actual: <span className="uppercase font-extrabold tracking-wider transition-colors duration-300" style={{ color: primaryColor }}>{creatorData.isPremium ? 'PRO ⭐' : 'Free'}</span></span>
@@ -479,6 +485,7 @@ export default function CreatorDashboard() {
                             <button onClick={() => setActiveTab('interaction')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'interaction' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>💬 Interacción</button>
                             <button onClick={() => setActiveTab('payments')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'payments' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>🏦 Pagos</button>
                             <button onClick={() => setActiveTab('settings')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>⚙️ Configuración</button>
+                            <button onClick={() => setActiveTab('feedback')} className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg transition-colors ${activeTab === 'feedback' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}>💡 Feedback</button>
 
                             {(creatorData as any)?.role === 'admin' && (
                                 <button
@@ -865,6 +872,11 @@ export default function CreatorDashboard() {
                                         <VerificationBadgeZone creatorData={creatorData} />
                                         <DeleteAccountZone />
                                     </div>
+                                </motion.div>
+                            )}
+                            {activeTab === 'feedback' && (
+                                <motion.div key="feedback" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="space-y-8">
+                                    <FeedbackManager />
                                 </motion.div>
                             )}
                         </AnimatePresence>

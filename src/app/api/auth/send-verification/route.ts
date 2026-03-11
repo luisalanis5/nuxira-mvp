@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { render } from '@react-email/components';
 import { Resend } from 'resend';
 import { adminAuth } from '@/lib/firebase/admin';
 import { VerificationEmail } from '@/emails/VerificationEmail';
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
                     from: 'Equipo Nuxira <hola@nuxira.me>',
                     to: email,
                     subject: 'Verifica tu cuenta de Nuxira 🚀',
-                    react: VerificationEmail({ name: name || 'Creador', verificationLink }) as any
+                    html: await render(VerificationEmail({ name: name || 'Creador', verificationLink }) as React.ReactElement)
                 });
 
                 if (error) {
@@ -48,6 +49,9 @@ export async function POST(request: Request) {
         });
     } catch (error: any) {
         console.error('[EMAIL VERIFICATION API] Error:', error);
+        if (error.message?.includes('TOO_MANY_ATTEMPTS')) {
+            return NextResponse.json({ error: 'Has solicitado demasiados correos. Por favor, espera unos minutos antes de intentar de nuevo.' }, { status: 429 });
+        }
         return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
     }
 }

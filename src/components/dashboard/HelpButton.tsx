@@ -60,7 +60,7 @@ export default function HelpButton() {
                 },
                 {
                     question: "¿Cómo comparto mi perfil en mis redes sociales?",
-                    answer: "En la parte superior de tu Centro de Mando verás tu enlace único de Nuxira (ej. nuxira.app/tu_usuario) junto a un botón de copiar. Haz clic para copiarlo y pégalo en la sección de 'Sitio Web' o 'Biografía' de tu Instagram, TikTok, X o YouTube para que tus seguidores puedan ver tu contenido exclusivo."
+                    answer: "En la parte superior de tu Centro de Mando verás tu enlace único de Nuxira (ej. nuxira.me/tu_usuario) junto a un botón de copiar. Haz clic para copiarlo y pégalo en la sección de 'Sitio Web' o 'Biografía' de tu Instagram, TikTok, X o YouTube para que tus seguidores puedan ver tu contenido exclusivo."
                 }
             ]
         },
@@ -153,7 +153,7 @@ export default function HelpButton() {
                                 <div className="mt-12 p-6 bg-gradient-to-br from-gray-900 to-black rounded-3xl border border-gray-800 text-center">
                                     <p className="text-gray-400 text-sm mb-4">¿Aún tienes dudas?</p>
                                     <a
-                                        href="mailto:soporte@nuxira.app"
+                                        href="mailto:soporte@nuxira.me"
                                         className="inline-block px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-colors"
                                     >
                                         Contactar Soporte

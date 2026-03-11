@@ -71,7 +71,7 @@ export default function WelcomeModal({ onClose }: WelcomeModalProps) {
                             </div>
                             <div>
                                 <h3 className="text-white font-bold">Comparte tu URL</h3>
-                                <p className="text-gray-400 text-sm">Pega nuxira.app/tu-usuario en tus redes sociales y empieza a conectar con tu audiencia.</p>
+                                <p className="text-gray-400 text-sm">Pega nuxira.me/tu-usuario en tus redes sociales y empieza a conectar con tu audiencia.</p>
                             </div>
                         </div>
                     </div>

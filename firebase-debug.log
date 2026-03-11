@@ -1,27 +1,75 @@
-[debug] [2026-03-07T20:54:35.648Z] ----------------------------------------------------------------------
-[debug] [2026-03-07T20:54:35.653Z] Command:       D:\Program Files\nodejs\node.exe C:\Users\ameri\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js login
-[debug] [2026-03-07T20:54:35.653Z] CLI Version:   15.9.0
-[debug] [2026-03-07T20:54:35.654Z] Platform:      win32
-[debug] [2026-03-07T20:54:35.654Z] Node Version:  v24.14.0
-[debug] [2026-03-07T20:54:35.654Z] Time:          Sat Mar 07 2026 14:54:35 GMT-0600 (hora estándar central)
-[debug] [2026-03-07T20:54:35.655Z] ----------------------------------------------------------------------
+[debug] [2026-03-11T02:51:19.441Z] ----------------------------------------------------------------------
+[debug] [2026-03-11T02:51:19.445Z] Command:       D:\Program Files\nodejs\node.exe C:\Users\ameri\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore
+[debug] [2026-03-11T02:51:19.446Z] CLI Version:   15.9.0
+[debug] [2026-03-11T02:51:19.446Z] Platform:      win32
+[debug] [2026-03-11T02:51:19.446Z] Node Version:  v24.14.0
+[debug] [2026-03-11T02:51:19.446Z] Time:          Tue Mar 10 2026 20:51:19 GMT-0600 (hora estándar central)
+[debug] [2026-03-11T02:51:19.447Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-03-07T20:54:35.659Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
-[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
-[debug] [2026-03-07T20:54:35.949Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
-[debug] [2026-03-07T20:54:35.949Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-03-11T02:51:22.960Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-11T02:51:22.960Z] > authorizing via signed-in user (luisalanis916@gmail.com)
+[debug] [2026-03-11T02:51:22.960Z] [iam] checking project nexia-mvp for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-03-11T02:51:22.962Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:22.962Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:22.963Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/nexia-mvp:testIamPermissions [none]
+[debug] [2026-03-11T02:51:22.963Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/nexia-mvp:testIamPermissions  x-goog-user-project=nexia-mvp
+[debug] [2026-03-11T02:51:22.963Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/nexia-mvp:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-03-11T02:51:23.331Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/nexia-mvp:testIamPermissions 200
+[debug] [2026-03-11T02:51:23.331Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/nexia-mvp:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
 [info] 
-[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[info] === Deploying to 'nexia-mvp'...
 [info] 
-[info] i  To change your preferences at any time, run `firebase logout` and `firebase login` again. 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-03-11T02:51:23.342Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:23.343Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:23.343Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/nexia-mvp/databases/(default) [none]
+[debug] [2026-03-11T02:51:23.712Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/nexia-mvp/databases/(default) 200
+[debug] [2026-03-11T02:51:23.712Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/nexia-mvp/databases/(default) {"name":"projects/nexia-mvp/databases/(default)","uid":"c61b6bc0-489e-48cc-9780-6aed9483e842","createTime":"2026-03-01T02:12:49.814685Z","updateTime":"2026-03-01T02:12:49.814685Z","locationId":"us-central1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-03-11T01:51:25.185826Z","appEngineIntegrationMode":"DISABLED","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"INav4rHrlpMDMMbN7ZSx/pID"}
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-03-11T02:51:23.754Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:23.754Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:23.755Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp:test [none]
+[debug] [2026-03-11T02:51:23.755Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp:test [omitted]
+[debug] [2026-03-11T02:51:23.971Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp:test 200
+[debug] [2026-03-11T02:51:23.971Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp:test {}
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-03-11T02:51:23.973Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:23.974Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:23.974Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases pageSize=10&pageToken=
+[debug] [2026-03-11T02:51:24.066Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases 200
+[debug] [2026-03-11T02:51:24.067Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases {"releases":[{"name":"projects/nexia-mvp/releases/cloud.firestore","rulesetName":"projects/nexia-mvp/rulesets/0e905d8d-6e27-4f6c-aa6f-155e067afffb","createTime":"2026-03-01T02:12:51.245749Z","updateTime":"2026-03-11T02:38:39.984701Z"},{"name":"projects/nexia-mvp/releases/firebase.storage/nexia-mvp.firebasestorage.app","rulesetName":"projects/nexia-mvp/rulesets/dd05cd9b-1468-43d5-8df4-0a319f1387f1","createTime":"2026-03-01T08:48:10.060606Z","updateTime":"2026-03-09T02:26:01.626449Z"}]}
+[debug] [2026-03-11T02:51:24.088Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:24.088Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:24.089Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets/0e905d8d-6e27-4f6c-aa6f-155e067afffb [none]
+[debug] [2026-03-11T02:51:24.184Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets/0e905d8d-6e27-4f6c-aa6f-155e067afffb 200
+[debug] [2026-03-11T02:51:24.184Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets/0e905d8d-6e27-4f6c-aa6f-155e067afffb [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2026-03-11T02:51:24.186Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:24.186Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:24.187Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets [none]
+[debug] [2026-03-11T02:51:24.187Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets [omitted]
+[debug] [2026-03-11T02:51:24.343Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets 200
+[debug] [2026-03-11T02:51:24.343Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/nexia-mvp/rulesets {"name":"projects/nexia-mvp/rulesets/09d783e7-d6bd-466b-be35-ac1281b3bafe","source":{"files":[{"content":"rules_version = '2';\r\nservice cloud.firestore {\r\n  match /databases/{database}/documents {\r\n    \r\n    // Helper: ¿Es el dueño del documento?\r\n    function isOwner(userId) {\r\n      return request.auth != null && request.auth.uid == userId;\r\n    }\r\n\r\n    // Helper: ¿Es Administrador?\r\n    function isAdmin() {\r\n      return request.auth != null && \r\n        exists(/databases/$(database)/documents/creators/$(request.auth.uid)) &&\r\n        get(/databases/$(database)/documents/creators/$(request.auth.uid)).data.role == 'admin';\r\n    }\r\n\r\n    // --- COLECCTION: CREATORS ---\r\n    match /creators/{uid} {\r\n      allow read: if true; \r\n      allow create: if isOwner(uid);\r\n      allow update: if isOwner(uid) && \r\n        (\r\n          !request.resource.data.diff(resource.data).affectedKeys()\r\n            .hasAny(['isPremium', 'isVerified', 'stripeAccountId', 'stripeSetupComplete', 'role', 'balance'])\r\n          || isAdmin()\r\n        );\r\n      \r\n      allow delete: if isAdmin();\r\n\r\n      // --- SUBCOLLECTION: NOTIFICATIONS ---\r\n      match /notifications/{notifId} {\r\n        allow read, update: if isOwner(uid);\r\n        allow create, delete: if isAdmin() || isOwner(uid); \r\n      }\r\n\r\n      // --- SUBCOLLECTION: UNLOCKED_MODULES ---\r\n      match /unlocked_modules/{sessionId} {\r\n        allow read: if isOwner(uid);\r\n        allow write: if false; \r\n      }\r\n\r\n      // --- SUBCOLLECTION: FEED_POSTS ---\r\n      match /feed_posts/{postId} {\r\n        allow read: if true;\r\n        allow create, update, delete: if isOwner(uid);\r\n      }\r\n\r\n      // --- SUBCOLLECTION: MODULOS (Interacción Live / Polls) ---\r\n      match /modules/{moduleId} {\r\n        allow read: if true;\r\n        allow write: if isOwner(uid);\r\n      }\r\n\r\n      // --- SUBCOLLECTION: ANALYTICS ---\r\n      match /analytics_events/{eventId} {\r\n        allow read: if isOwner(uid);\r\n        allow create: if true; // Permitir que cualquier visitante registre un evento (clic)\r\n        allow update, delete: if false;\r\n      }\r\n    }\r\n\r\n    // --- COLECCTION: VERIFICATION REQUESTS ---\r\n    match /verification_requests/{uid} {\r\n      allow read: if isOwner(uid) || isAdmin();\r\n      allow create: if isOwner(uid);\r\n      allow update, delete: if isAdmin();\r\n    }\r\n\r\n    // --- COLECCTION: QUESTIONS (Q&A) ---\r\n    match /questions/{qId} {\r\n      allow create: if true;\r\n      allow read: if resource.data.isPublic == true || isOwner(resource.data.receiverId);\r\n      allow update: if isOwner(resource.data.receiverId);\r\n      allow delete: if isOwner(resource.data.receiverId) || isAdmin();\r\n    }\r\n\r\n    // --- COLECCTION: PLATFORM ADS ---\r\n    match /platform_ads/{adId} {\r\n      allow read: if true;\r\n      allow update: if true; // Permitir incremento de clicks desde el cliente (opcional, ahora se hace vía API)\r\n      allow write: if isAdmin();\r\n    }\r\n\r\n    // --- COLECCTION: FEEDBACK & BUGS ---\r\n    match /feedback/{feedbackId} {\r\n      allow create: if request.auth != null;\r\n      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());\r\n      allow delete: if isAdmin();\r\n      allow update: if false;\r\n    }\r\n  }\r\n}\r\n","name":"firestore.rules"}]},"createTime":"2026-03-11T02:51:25.802559Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2026-03-11T02:51:24.343Z] [rules] created ruleset projects/nexia-mvp/rulesets/09d783e7-d6bd-466b-be35-ac1281b3bafe
+[info] i  firestore: deploying indexes... 
+[debug] [2026-03-11T02:51:24.344Z] [rules] releasing cloud.firestore/(default) with ruleset projects/nexia-mvp/rulesets/09d783e7-d6bd-466b-be35-ac1281b3bafe
+[debug] [2026-03-11T02:51:24.345Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:24.345Z] Checked if tokens are valid: true, expires at: 1773200296630
+[debug] [2026-03-11T02:51:24.345Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases/cloud.firestore/(default) [none]
+[debug] [2026-03-11T02:51:24.345Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases/cloud.firestore/(default) {"release":{"name":"projects/nexia-mvp/releases/cloud.firestore/(default)","rulesetName":"projects/nexia-mvp/rulesets/09d783e7-d6bd-466b-be35-ac1281b3bafe"}}
+[debug] [2026-03-11T02:51:24.475Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases/cloud.firestore/(default) 200
+[debug] [2026-03-11T02:51:24.475Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/nexia-mvp/releases/cloud.firestore/(default) {"name":"projects/nexia-mvp/releases/cloud.firestore","rulesetName":"projects/nexia-mvp/rulesets/09d783e7-d6bd-466b-be35-ac1281b3bafe","createTime":"2026-03-01T02:12:51.245749Z","updateTime":"2026-03-11T02:51:25.944365Z"}
+[debug] [2026-03-11T02:51:24.475Z] [rules] updated release projects/nexia-mvp/releases/cloud.firestore
+[info] +  firestore: released rules firestore.rules to cloud.firestore 
 [info] 
-[info] Visit this URL on this device to log in:
-[info] https://accounts.google.com/o/oauth2/auth?client_id=563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com&scope=email%20openid%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloudplatformprojects.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Ffirebase%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform&response_type=code&state=290224101&redirect_uri=http%3A%2F%2Flocalhost%3A9005
+[info] +  Deploy complete! 
 [info] 
-[info] Waiting for authentication...
-[debug] [2026-03-07T20:54:52.633Z] Error: spawn cmd ENOENT
-    at ChildProcess._handle.onexit (node:internal/child_process:286:19)
-    at onErrorNT (node:internal/child_process:484:16)
-    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+[info] Project Console: https://console.firebase.google.com/project/nexia-mvp/overview
+[debug] [2026-03-11T02:51:29.632Z] Error: Timed out.
+    at Timeout._onTimeout (C:\Users\ameri\AppData\Roaming\npm\node_modules\firebase-tools\lib\utils.js:308:49)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
 [error] 
 [error] Error: An unexpected error has occurred.

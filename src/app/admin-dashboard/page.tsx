@@ -21,48 +21,59 @@ interface VerificationRequest {
     requestedAt?: any;
 }
 
+interface FeedbackItem {
+    id: string;
+    userId: string;
+    userEmail: string;
+    type: 'bug' | 'suggestion' | 'improvement';
+    message: string;
+    screenshotUrl?: string;
+    status: string;
+    createdAt: any;
+}
+
 export default function AdminDashboardPage() {
     const router = useRouter();
     const [requests, setRequests] = useState<VerificationRequest[]>([]);
+    const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
     const [deniedUid, setDeniedUid] = useState<string | null>(null);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+    const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'bug' | 'suggestion' | 'improvement'>('all');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    // Resetear estados previos por seguridad
-                    setIsAdmin(false);
-                    setDeniedUid(null);
-
-                    // Verificación de ROL en Firestore (Capa 2)
-                    const creatorRef = doc(db, 'creators', user.uid);
-                    const creatorSnap = await getDoc(creatorRef);
-
-                    if (creatorSnap.exists() && creatorSnap.data().role === 'admin') {
-                        setIsAdmin(true);
-                        fetchRequests();
-                    } else {
-                        // Si no es admin, fuera.
-                        setDeniedUid(user.uid);
-                        // Redirección forzada tras un breve delay si el usuario intenta quedarse
-                        setTimeout(() => {
-                            if (!isAdmin) router.push('/dashboard');
-                        }, 5000);
-                    }
-                } catch (err) {
-                    console.error("Error validando rol admin:", err);
-                    router.push('/dashboard');
-                } finally {
-                    setIsLoading(false);
-                }
-            } else {
+            if (!user) {
                 setDeniedUid(null);
                 setIsAdmin(false);
+                await fetch('/api/auth/session', { method: 'DELETE' });
                 router.push('/dashboard/login');
+                return;
+            }
+            try {
+                setIsAdmin(false);
+                setDeniedUid(null);
+
+                const creatorRef = doc(db, 'creators', user.uid);
+                const creatorSnap = await getDoc(creatorRef);
+
+                if (creatorSnap.exists() && creatorSnap.data().role === 'admin') {
+                    setIsAdmin(true);
+                    fetchRequests();
+                    fetchFeedback();
+                } else {
+                    setDeniedUid(user.uid);
+                    setTimeout(() => {
+                        if (!isAdmin) router.push('/dashboard');
+                    }, 5000);
+                }
+            } catch (err) {
+                console.error("Error validando rol admin:", err);
+                router.push('/dashboard');
+            } finally {
+                setIsLoading(false);
             }
         });
 
@@ -70,7 +81,6 @@ export default function AdminDashboardPage() {
     }, [router]);
 
     const fetchRequests = async () => {
-        setIsLoading(true);
         try {
             const q = query(collection(db, 'verification_requests'));
             const querySnapshot = await getDocs(q);
@@ -81,9 +91,22 @@ export default function AdminDashboardPage() {
             setRequests(reqs);
         } catch (error) {
             console.error("Error fetching verification requests:", error);
-            toast.error("Error cargando solicitudes de verificación");
-        } finally {
-            setIsLoading(false);
+        }
+    };
+
+    const fetchFeedback = async () => {
+        try {
+            const q = query(collection(db, 'feedback'));
+            const querySnapshot = await getDocs(q);
+            const items: FeedbackItem[] = [];
+            querySnapshot.forEach((docSnap) => {
+                items.push({ id: docSnap.id, ...docSnap.data() } as FeedbackItem);
+            });
+            // Sort by date desc
+            items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            setFeedback(items);
+        } catch (error) {
+            console.error("Error fetching feedback:", error);
         }
     };
 
@@ -91,8 +114,6 @@ export default function AdminDashboardPage() {
         setIsActionLoading(uid);
         try {
             await updateDoc(doc(db, 'creators', uid), { isVerified: true });
-
-            // Trigger Notification
             await addDoc(collection(db, 'creators', uid, 'notifications'), {
                 type: 'verification',
                 message: '¡Felicidades! Tu cuenta ha sido verificada.',
@@ -100,7 +121,6 @@ export default function AdminDashboardPage() {
                 createdAt: serverTimestamp(),
                 actionUrl: '/dashboard'
             });
-
             await deleteDoc(doc(db, 'verification_requests', uid));
             toast.success("✅ Creador verificado exitosamente");
             setRequests(prev => prev.filter(r => r.id !== uid));
@@ -115,20 +135,15 @@ export default function AdminDashboardPage() {
     const handleReject = async (uid: string, proofImageUrl?: string) => {
         setIsActionLoading(uid);
         try {
-            // 1. Delete the proof image from Storage to free up space
             if (proofImageUrl) {
                 try {
                     const imageRef = ref(storage, proofImageUrl);
                     await deleteObject(imageRef);
                 } catch (storageErr) {
-                    // Non-fatal: storage file might already be gone
                     console.warn("Could not delete proof image from Storage:", storageErr);
                 }
             }
-
-            // 2. Delete the Firestore request document
             await deleteDoc(doc(db, 'verification_requests', uid));
-
             toast.success("❌ Solicitud rechazada y prueba eliminada de Storage");
             setRequests(prev => prev.filter(r => r.id !== uid));
         } catch (error) {
@@ -139,11 +154,38 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const handleDeleteFeedback = async (id: string, screenshotUrl?: string) => {
+        setIsActionLoading(id);
+        try {
+            if (screenshotUrl) {
+                try {
+                    const imageRef = ref(storage, screenshotUrl);
+                    await deleteObject(imageRef);
+                } catch (err) {
+                    console.warn("Could not delete feedback image:", err);
+                }
+            }
+            await deleteDoc(doc(db, 'feedback', id));
+            toast.success("Feedback eliminado");
+            setFeedback(prev => prev.filter(f => f.id !== id));
+        } catch (error) {
+            console.error("Error deleting feedback:", error);
+            toast.error("Error al eliminar feedback");
+        } finally {
+            setIsActionLoading(null);
+        }
+    };
+
     const formatDate = (ts: any) => {
-        if (!ts) return 'Desconocida';
-        try { return new Date(ts.toDate()).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }); }
+        if (!ts) return 'Reciente';
+        try {
+            const d = ts.toDate ? ts.toDate() : new Date(ts);
+            return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
         catch { return 'N/A'; }
     };
+
+    const filteredFeedback = feedback.filter(f => feedbackFilter === 'all' || f.type === feedbackFilter);
 
     if (!isAdmin) {
         if (deniedUid) {
@@ -191,16 +233,14 @@ export default function AdminDashboardPage() {
 
     return (
         <div className="min-h-screen bg-[#050505] p-6 lg:p-12 text-white font-sans">
-            {/* Lightbox for proof images */}
             {lightboxUrl && (
                 <div
                     className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6 cursor-zoom-out"
                     onClick={() => setLightboxUrl(null)}
                 >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={lightboxUrl}
-                        alt="Prueba de verificación"
+                        alt="Preview"
                         className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     />
@@ -213,114 +253,60 @@ export default function AdminDashboardPage() {
                 </div>
             )}
 
-            <div className="max-w-7xl mx-auto space-y-8">
+            <div className="max-w-7xl mx-auto space-y-12">
                 <div className="flex items-center justify-between border-b border-gray-800 pb-6">
                     <div>
                         <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#00FFCC] to-blue-500">
                             🛡️ Panel de Administración (Nuxira)
                         </h1>
-                        <p className="text-gray-400 mt-2">Solicitudes de Verificación · Revisión de Pruebas de Identidad</p>
+                        <p className="text-gray-400 mt-2">Gestión de plataforma · Verificaciones · Feedback Beta</p>
                     </div>
                 </div>
 
-                <div className="bg-[#0f0f0f] border border-gray-800 rounded-3xl p-6 shadow-2xl">
+                {/* SECCIÓN: VERIFICACIONES */}
+                <div className="bg-[#0f0f0f] border border-gray-800 rounded-3xl p-6 shadow-2xl overflow-hidden">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        Solicitudes Pendientes <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm">{requests.length}</span>
+                        Solicitudes de Verificación <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm">{requests.length}</span>
                     </h2>
 
-                    {isLoading ? (
-                        <div className="animate-pulse space-y-4">
-                            {[1, 2, 3].map(i => <div key={i} className="h-20 bg-gray-800/50 rounded-2xl w-full" />)}
-                        </div>
-                    ) : requests.length === 0 ? (
-                        <div className="text-center py-12 border border-dashed border-gray-800 rounded-3xl">
-                            <span className="text-4xl">☕</span>
-                            <p className="text-gray-500 mt-4">No hay solicitudes pendientes por ahora.</p>
+                    {requests.length === 0 ? (
+                        <div className="text-center py-12 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20 text-gray-500">
+                            <p>No hay solicitudes pendientes.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse text-sm">
                                 <thead>
                                     <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider">
-                                        <th className="pb-4 pl-4 font-medium">Usuario</th>
-                                        <th className="pb-4 font-medium">Email</th>
-                                        <th className="pb-4 font-medium">Categoría</th>
-                                        <th className="pb-4 font-medium">Red Social</th>
-                                        <th className="pb-4 font-medium">Prueba</th>
-                                        <th className="pb-4 font-medium">Fecha</th>
-                                        <th className="pb-4 pr-4 font-medium text-right">Acciones</th>
+                                        <th className="pb-4 pl-4 font-medium text-xs">Usuario</th>
+                                        <th className="pb-4 font-medium text-xs">Email</th>
+                                        <th className="pb-4 font-medium text-xs">Prueba</th>
+                                        <th className="pb-4 font-medium text-xs">Fecha</th>
+                                        <th className="pb-4 pr-4 font-medium text-right text-xs">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {requests.map(req => (
                                         <tr key={req.id} className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
-                                            {/* Usuario */}
                                             <td className="py-4 pl-4">
                                                 <div className="flex flex-col">
-                                                    <a href={`/${req.username}`} target="_blank" rel="noopener noreferrer" className="font-bold text-white hover:text-[#00FFCC] transition-colors">
-                                                        @{req.username}
-                                                    </a>
-                                                    <span className="text-xs text-gray-600 font-mono">{req.uid.slice(0, 12)}…</span>
+                                                    <a href={`/${req.username}`} target="_blank" className="font-bold text-white hover:text-[#00FFCC] transition-colors">@{req.username}</a>
+                                                    <span className="text-[10px] text-gray-600 font-mono tracking-tighter truncate w-24">{req.uid}</span>
                                                 </div>
                                             </td>
-                                            {/* Email */}
-                                            <td className="py-4 text-gray-400">{req.email}</td>
-                                            {/* Categoría */}
+                                            <td className="py-4 text-gray-400 text-xs">{req.email}</td>
                                             <td className="py-4">
-                                                {req.category ? (
-                                                    <span className="px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold">
-                                                        {req.category}
-                                                    </span>
-                                                ) : <span className="text-gray-600">—</span>}
-                                            </td>
-                                            {/* Red Social */}
-                                            <td className="py-4">
-                                                {req.socialUrl ? (
-                                                    <a
-                                                        href={req.socialUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-1 text-[#00FFCC] hover:underline text-xs font-medium"
-                                                    >
-                                                        Ver perfil ↗
-                                                    </a>
-                                                ) : <span className="text-gray-600">—</span>}
-                                            </td>
-                                            {/* Prueba */}
-                                            <td className="py-4">
-                                                {req.proofImageUrl ? (
-                                                    <button
-                                                        onClick={() => setLightboxUrl(req.proofImageUrl!)}
-                                                        className="group relative w-12 h-10 rounded-lg overflow-hidden border border-gray-700 hover:border-[#00FFCC]/50 transition-all"
-                                                        title="Ver captura de pantalla"
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src={req.proofImageUrl} alt="Prueba" className="w-full h-full object-cover" />
-                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs">🔍</div>
+                                                {req.proofImageUrl && (
+                                                    <button onClick={() => setLightboxUrl(req.proofImageUrl!)} className="w-10 h-10 rounded-lg overflow-hidden border border-gray-800 hover:border-[#00FFCC] transition-all">
+                                                        <img src={req.proofImageUrl} alt="Proof" className="w-full h-full object-cover" />
                                                     </button>
-                                                ) : <span className="text-gray-600 text-xs">Sin imagen</span>}
+                                                )}
                                             </td>
-                                            {/* Fecha */}
-                                            <td className="py-4 text-gray-500">
-                                                {formatDate(req.submittedAt || req.requestedAt)}
-                                            </td>
-                                            {/* Acciones */}
+                                            <td className="py-4 text-gray-500 text-xs">{formatDate(req.submittedAt || req.requestedAt)}</td>
                                             <td className="py-4 pr-4 text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleReject(req.uid, req.proofImageUrl)}
-                                                        disabled={isActionLoading === req.uid}
-                                                        className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
-                                                    >
-                                                        Rechazar
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleApprove(req.uid)}
-                                                        disabled={isActionLoading === req.uid}
-                                                        className="px-4 py-2 bg-[#00FFCC]/10 text-[#00FFCC] hover:bg-[#00FFCC] hover:text-black border border-[#00FFCC]/20 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
-                                                    >
-                                                        Aprobar ✅
-                                                    </button>
+                                                    <button onClick={() => handleReject(req.uid, req.proofImageUrl)} className="p-2 bg-red-500/10 text-red-500 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition-all">❌</button>
+                                                    <button onClick={() => handleApprove(req.uid)} className="p-2 bg-[#00FFCC]/10 text-[#00FFCC] rounded-lg text-xs font-bold hover:bg-[#00FFCC] hover:text-black transition-all">✅</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -330,7 +316,80 @@ export default function AdminDashboardPage() {
                         </div>
                     )}
                 </div>
+
+                {/* SECCIÓN: FEEDBACK Y BUGS */}
+                <div className="bg-[#0f0f0f] border border-gray-800 rounded-3xl p-6 shadow-2xl">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                        <div>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                Feedback y Errores <span className="bg-[#00FFCC]/20 text-[#00FFCC] px-3 py-1 rounded-full text-sm font-black">{feedback.length}</span>
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-1">Sugerencias, mejoras y reportes recibidos desde la Beta.</p>
+                        </div>
+                        <div className="flex bg-gray-900 border border-gray-800 p-1 rounded-xl">
+                            {(['all', 'bug', 'improvement', 'suggestion'] as const).map(f => (
+                                <button
+                                    key={f}
+                                    onClick={() => setFeedbackFilter(f)}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${feedbackFilter === f ? 'bg-gray-800 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    {f === 'all' ? 'Todos' : f === 'bug' ? 'Bugs' : f === 'improvement' ? 'Mejoras' : 'Ideas'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {filteredFeedback.length === 0 ? (
+                        <div className="text-center py-12 border border-dashed border-gray-800 rounded-3xl bg-gray-900/10">
+                            <p className="text-gray-600">No hay feedback en esta categoría.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredFeedback.map(f => (
+                                <div key={f.id} className="bg-gray-900/40 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all flex flex-col justify-between group">
+                                    <div>
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border ${f.type === 'bug' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                    f.type === 'improvement' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                        'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                                    }`}>
+                                                    {f.type}
+                                                </span>
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase">{formatDate(f.createdAt)}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteFeedback(f.id, f.screenshotUrl)}
+                                                disabled={isActionLoading === f.id}
+                                                className="text-gray-600 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-all"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                        <p className="text-sm text-gray-300 leading-relaxed mb-4">{f.message}</p>
+                                    </div>
+
+                                    <div className="flex items-center justify-between mt-2 pt-4 border-t border-gray-800/50">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-gray-500 font-bold mb-0.5">Reportado por:</span>
+                                            <span className="text-[10px] text-gray-400 font-mono italic">{f.userEmail || f.userId}</span>
+                                        </div>
+                                        {f.screenshotUrl && (
+                                            <button
+                                                onClick={() => setLightboxUrl(f.screenshotUrl!)}
+                                                className="w-12 h-12 rounded-xl border border-gray-800 overflow-hidden hover:border-[#00FFCC] transition-all hover:scale-110 shadow-2xl"
+                                            >
+                                                <img src={f.screenshotUrl} alt="Screenshot" className="w-full h-full object-cover" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
+

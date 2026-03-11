@@ -109,12 +109,12 @@ export default function DeleteDataInstructionsPage() {
                                 <li>Todo tu perfil público, biografía, foto y temas son eliminados de nuestras bases de datos (Firestore).</li>
                                 <li>Todos los enlaces, módulos y analíticas creadas son purgadas irrevocablemente.</li>
                                 <li>Tu vínculo de inicio de sesión social (ej. el token de Facebook) es revocado y tu usuario es borrado por completo de Firebase Authentication.</li>
-                                <li>La URL pública (`nuxira.app/tualias`) quedará inmediatamente libre para que otra persona pueda registrarla.</li>
+                                <li>La URL pública (`nuxira.me/tualias`) quedará inmediatamente libre para que otra persona pueda registrarla.</li>
                             </ul>
                         </div>
                         <div className="pt-4 mt-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
                             <p className="text-xs text-gray-500">
-                                Si requieres ayuda adicional con tus datos, contacta a admin@nuxira.app.
+                                Si requieres ayuda adicional con tus datos, contacta a privacidad@nuxira.me.
                             </p>
                             <Link
                                 href="/dashboard/login"

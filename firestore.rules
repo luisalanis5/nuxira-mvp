@@ -1,57 +1,92 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Reglas universales y helpers
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
+    // Helper: ¿Es el dueño del documento?
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // 1. Colección users (Datos privados y de configuración)
-    match /users/{userId} {
-      // Nadie puede leer los datos privados excepto el dueño
-      allow read: if isOwner(userId);
-      // Solo el dueño puede crear o actualizar sus datos privados
-      allow create, update, delete: if isOwner(userId);
+    // Helper: ¿Es Administrador?
+    function isAdmin() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/creators/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/creators/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // 2. Colección profiles (Datos públicos de la página del creador)
-    match /profiles/{profileId} {
-      // Cualquiera (incluso no registrados) puede leer perfiles (para rendering público)
-      allow read: if true;
+    // --- COLECCTION: CREATORS ---
+    match /creators/{uid} {
+      allow read: if true; 
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) && 
+        (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['isPremium', 'isVerified', 'stripeAccountId', 'stripeSetupComplete', 'role', 'balance'])
+          || isAdmin()
+        );
       
-      // La escritura (crear, actualizar, borrar) está restringida al creador dueño
-      allow create: if isOwner(profileId) && request.resource.data.uid == request.auth.uid;
-      
-      // Permitimos cambiar campos como theme (asegurando poder aplicar el #c2cdff), bio, etc.
-      // Validación estricta: No pueden alterar su propio UID.
-      allow update: if isOwner(profileId) && request.resource.data.uid == request.auth.uid;
-      
-      allow delete: if isOwner(profileId);
+      allow delete: if isAdmin();
 
-      // Subcolección de links (Públicos pero gestionados solo por el dueño)
-      match /links/{linkId} {
-        // Los visitantes necesitan leer los links activos para ir al destino
-        allow read: if true;
-        // Solo el creador del perfil padre puede manejar los enlaces
-        allow create, update, delete: if isOwner(profileId);
+      // --- SUBCOLLECTION: NOTIFICATIONS ---
+      match /notifications/{notifId} {
+        allow read, update: if isOwner(uid);
+        allow create, delete: if isAdmin() || isOwner(uid); 
       }
-      
-      // Subcolección de módulos adicionales (si existieran)
+
+      // --- SUBCOLLECTION: UNLOCKED_MODULES ---
+      match /unlocked_modules/{sessionId} {
+        allow read: if isOwner(uid);
+        allow write: if false; 
+      }
+
+      // --- SUBCOLLECTION: FEED_POSTS ---
+      match /feed_posts/{postId} {
+        allow read: if true;
+        allow create, update, delete: if isOwner(uid);
+      }
+
+      // --- SUBCOLLECTION: MODULOS (Interacción Live / Polls) ---
       match /modules/{moduleId} {
         allow read: if true;
-        allow write: if isOwner(profileId);
+        allow write: if isOwner(uid);
+      }
+
+      // --- SUBCOLLECTION: ANALYTICS ---
+      match /analytics_events/{eventId} {
+        allow read: if isOwner(uid);
+        allow create: if true; // Permitir que cualquier visitante registre un evento (clic)
+        allow update, delete: if false;
       }
     }
-    
-    // Legacy support (para el actual `creators` collection si aún se usa en el Dashboard de MVP)
-    match /creators/{creatorId} {
-       allow read, write: if isOwner(creatorId);
+
+    // --- COLECCTION: VERIFICATION REQUESTS ---
+    match /verification_requests/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // --- COLECCTION: QUESTIONS (Q&A) ---
+    match /questions/{qId} {
+      allow create: if true;
+      allow read: if resource.data.isPublic == true || isOwner(resource.data.receiverId);
+      allow update: if isOwner(resource.data.receiverId);
+      allow delete: if isOwner(resource.data.receiverId) || isAdmin();
+    }
+
+    // --- COLECCTION: PLATFORM ADS ---
+    match /platform_ads/{adId} {
+      allow read: if true;
+      allow update: if true; // Permitir incremento de clicks desde el cliente (opcional, ahora se hace vía API)
+      allow write: if isAdmin();
+    }
+
+    // --- COLECCTION: FEEDBACK & BUGS ---
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+      allow update: if false;
     }
   }
 }

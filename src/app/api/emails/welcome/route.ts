@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { render } from '@react-email/components';
 import { Resend } from 'resend';
 import { WelcomeEmail } from '@/emails/WelcomeEmail';
 
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
                     from: 'Equipo Nuxira <hola@nuxira.me>',
                     to: email,
                     subject: '¡Bienvenido a tu nuevo multiverso digital! 🚀',
-                    react: WelcomeEmail({ name: name || 'Creador' }) as any
+                    html: await render(WelcomeEmail({ name: name || 'Creador' }) as React.ReactElement)
                 });
 
                 if (error) {
