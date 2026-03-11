@@ -22,12 +22,22 @@ export async function POST(request: Request) {
         const verificationLink = await adminAuth.generateEmailVerificationLink(email);
 
         if (process.env.RESEND_API_KEY) {
-            await resend.emails.send({
-                from: 'Nuxira <onboarding@resend.dev>',
-                to: email,
-                subject: 'Verifica tu cuenta de Nuxira 🚀',
-                react: VerificationEmail({ name: name || 'Creador', verificationLink }) as any
-            });
+            try {
+                const { data, error } = await resend.emails.send({
+                    from: 'Equipo Nuxira <hola@nuxira.me>',
+                    to: email,
+                    subject: 'Verifica tu cuenta de Nuxira 🚀',
+                    react: VerificationEmail({ name: name || 'Creador', verificationLink }) as any
+                });
+
+                if (error) {
+                    console.error('[EMAIL VERIFICATION API] Resend error:', error);
+                    return NextResponse.json({ error: error.message }, { status: 500 });
+                }
+            } catch (err: any) {
+                console.error('[EMAIL VERIFICATION API] Fallo crítico al enviar correo con Resend:', err);
+                return NextResponse.json({ error: err.message }, { status: 500 });
+            }
         }
 
         console.log(`[EMAIL VERIFICATION API] 🚀 Correo de Validación enviado a: ${email}`);
